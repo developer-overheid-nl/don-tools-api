@@ -1,0 +1,127 @@
+package openapi
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
+	"github.com/google/uuid"
+)
+
+// spectralResult vertegenwoordigt één entry uit `spectral lint -f json`
+type spectralResult struct {
+	Code     string        `json:"code"`
+	Message  string        `json:"message"`
+	Path     []interface{} `json:"path"`
+	Severity int           `json:"severity"`
+	Source   string        `json:"source"`
+}
+
+func sevToString(sev int) string {
+	switch sev { // spectral: 0=error,1=warn,2=info,3=hint
+	case 0:
+		return "error"
+	case 1:
+		return "warning"
+	case 2:
+		return "info"
+	case 3:
+		return "hint"
+	default:
+		return "unknown"
+	}
+}
+
+// ParseOutput zet spectral JSON output om naar LintMessages
+func ParseOutput(output string, now time.Time) []models.LintMessage {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return nil
+	}
+
+	var results []spectralResult
+	if err := json.Unmarshal([]byte(trimmed), &results); err != nil {
+		// Niet-JSON output: maak één melding met de ruwe tekst
+		id := uuid.New().String()
+		return []models.LintMessage{{
+			ID:        id,
+			Code:      "lint-output",
+			Severity:  "info",
+			CreatedAt: now,
+			Infos: []models.LintMessageInfo{{
+				ID:            uuid.New().String(),
+				LintMessageID: id,
+				Message:       trimmed,
+			}},
+		}}
+	}
+
+	var msgs []models.LintMessage
+	for _, r := range results {
+		id := uuid.New().String()
+		// Bouw pad string
+		var pathStr string
+		if len(r.Path) > 0 {
+			var parts []string
+			for _, p := range r.Path {
+				parts = append(parts, toString(p))
+			}
+			pathStr = strings.Join(parts, ".")
+		}
+		if pathStr == "" {
+			pathStr = r.Source
+		}
+		msgs = append(msgs, models.LintMessage{
+			ID:        id,
+			Code:      r.Code,
+			Severity:  sevToString(r.Severity),
+			CreatedAt: now,
+			Infos: []models.LintMessageInfo{{
+				ID:            uuid.New().String(),
+				LintMessageID: id,
+				Message:       r.Message,
+				Path:          pathStr,
+			}},
+		})
+	}
+	return msgs
+}
+
+func toString(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		// JSON numbers decode to float64
+		// strip .0 if integer
+		if t == float64(int64(t)) {
+			return strconvItoa(int(t))
+		}
+		return strings.TrimRight(strings.TrimRight(fmtFloat(t), "0"), ".")
+	default:
+		b, _ := json.Marshal(t)
+		return string(b)
+	}
+}
+
+func strconvItoa(i int) string  { return fmt.Sprintf("%d", i) }
+func fmtFloat(f float64) string { return fmt.Sprintf("%f", f) }
+
+func GetOASFromBody(body *models.OASBody) []byte {
+    if body == nil {
+        return nil
+    }
+    // Geef voorkeur aan Raw indien aanwezig
+    if len(body.Raw) > 0 {
+        return body.Raw
+    }
+    // Als OAS als object aanwezig is, marshal terug naar bytes
+    if len(body.OAS) > 0 {
+        if buf, err := json.Marshal(body.OAS); err == nil {
+            return buf
+        }
+    }
+    return nil
+}
