@@ -44,6 +44,6 @@ func main() {
 	router := api.NewRouter(version, controller)
 
 	// Start server
-	log.Println("Server luistert op :1339")
-	log.Fatal(http.ListenAndServe(":1339", router))
+	log.Println("Server luistert op :1338")
+	log.Fatal(http.ListenAndServe(":1338", router))
 }
