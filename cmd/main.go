@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 	api "github.com/developer-overheid-nl/don-tools-api/pkg/api_client"
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/handler"
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/helper/problem"
+	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/jobs"
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/services"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -40,8 +42,12 @@ func main() {
 	brunoSvc := services.NewBrunoService()
 	postmanSvc := services.NewPostmanService()
 	linterSvc := services.NewLinterService()
+	harvesterSvc := services.NewHarvesterServiceFromEnv()
 	controller := handler.NewToolsController(brunoSvc, postmanSvc, linterSvc)
 	router := api.NewRouter(version, controller)
+
+	ctx, _ := context.WithCancel(context.Background())
+	jobs.SchedulePDOKHarvest(ctx, harvesterSvc)
 
 	// Start server
 	log.Println("Server luistert op :1338")
