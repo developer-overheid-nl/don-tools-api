@@ -70,9 +70,9 @@ func (tc *ToolsController) GenerateBrunoFromOASGET(c *gin.Context, p *models.Too
 		return problem.NewInternalServerError(err.Error())
 	}
 
-	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Disposition", "attachment; filename=\""+name+".zip\"")
-	c.Data(http.StatusOK, "application/zip", zipBytes)
+	c.Data(http.StatusOK, "application/octet-stream", zipBytes)
 	return nil
 }
 
@@ -88,9 +88,9 @@ func (tc *ToolsController) GenerateBrunoFromOASPOST(c *gin.Context, body *models
 		return problem.NewInternalServerError(err.Error())
 	}
 
-	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Disposition", "attachment; filename=\""+name+".zip\"")
-	c.Data(http.StatusOK, "application/zip", zipBytes)
+	c.Data(http.StatusOK, "application/octet-stream", zipBytes)
 	return nil
 }
 

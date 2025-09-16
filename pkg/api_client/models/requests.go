@@ -2,27 +2,19 @@ package models
 
 import "encoding/json"
 
-// OASURLQuery representeert de query parameter voor GET endpoints
-type OASURLQuery struct {
-	OASUrl string `query:"oasUrl" example:"https://example.com/openapi.yaml"`
-}
-
 // OASBody representeert een JSON envelope voor het OpenAPI document
 type OASBody struct {
-	OAS    json.RawMessage `json:"oas,omitempty"`
-	OASUrl string          `json:"oasUrl,omitempty"`
-	Raw    json.RawMessage `json:"-"`
+	OAS json.RawMessage `json:"oas,omitempty"`
+	Raw json.RawMessage `json:"-"`
 }
 
 func (b *OASBody) UnmarshalJSON(p []byte) error {
 	// 1) Probeer eerst envelope {oas, oasUrl}
 	var env struct {
-		OAS    json.RawMessage `json:"oas"`
-		OASUrl string          `json:"oasUrl"`
+		OAS json.RawMessage `json:"oas"`
 	}
-	if err := json.Unmarshal(p, &env); err == nil && (len(env.OAS) > 0 || env.OASUrl != "") {
+	if err := json.Unmarshal(p, &env); err == nil && (len(env.OAS) > 0) {
 		b.OAS = env.OAS
-		b.OASUrl = env.OASUrl
 		if len(env.OAS) > 0 {
 			b.Raw = env.OAS
 		}
