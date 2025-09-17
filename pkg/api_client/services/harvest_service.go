@@ -157,35 +157,6 @@ func (s *HarvesterService) postAPI(ctx context.Context, payload models.ApiPost, 
 	return resp.StatusCode, body, nil
 }
 
-func (s *HarvesterService) putAPI(ctx context.Context, payload models.ApiPost, bearer string) (int, string, error) {
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return 0, "", err
-	}
-	// Id for PUT comes from path param; we use the OAS URL as identifier
-	id := url.PathEscape(payload.OasUrl)
-	putURL := strings.TrimRight(s.registerEndpoint, "/") + "/" + id
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, putURL, bytes.NewReader(b))
-	if err != nil {
-		return 0, "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if strings.TrimSpace(bearer) != "" {
-		req.Header.Set("Authorization", "Bearer "+bearer)
-	}
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return 0, "", err
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-	body := strings.TrimSpace(string(data))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return resp.StatusCode, body, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
-	}
-	return resp.StatusCode, body, nil
-}
-
 // getAccessToken retrieves an OAuth2 access token via client_credentials
 func (s *HarvesterService) getAccessToken(ctx context.Context) (string, error) {
 	if s.tokenURL == "" || s.clientID == "" || s.clientSecret == "" {
