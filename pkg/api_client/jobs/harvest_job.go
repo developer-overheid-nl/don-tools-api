@@ -12,7 +12,7 @@ import (
 
 // ScheduleHarvest zet een cron job op die de opgegeven bronnen harvest
 func ScheduleHarvest(ctx context.Context, svc *services.HarvesterService, sources []models.HarvestSource) *cron.Cron {
-	spec := "@every 5m"
+	spec := "@every 24h"
 	c := cron.New(cron.WithChain(
 		cron.Recover(cron.DefaultLogger),
 		cron.SkipIfStillRunning(cron.DefaultLogger),
