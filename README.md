@@ -52,19 +52,6 @@ De harvester is op dit moment ingericht voor één bron (PDOK). De job bevat de 
 - Payload naar register (`ApiPost`):
   - `{ "oasUrl": "...", "organisationUri": "...", "contact": { ... } }`
 
-## Configuratie (env)
-
-- Algemene
-  - `API_VERSION` (default `1.0.0`)
-
-- Harvester
-  - `PDOK_REGISTER_ENDPOINT` (POST endpoint, verschilt per omgeving)
-  - `HARVEST_ENABLED` of `PDOK_IMPORT_ENABLED` = `true` om scheduler te starten
-  - `HARVEST_CRON` of `PDOK_IMPORT_CRON` (bijv. `@every 6h`)
-  - `PDOK_INDEX_URL`, `PDOK_ORGANISATION_URI`
-
-Plaats env in `.env`; deze wordt automatisch geladen door de app.
-
 ## Docker
 
 Build en run met Docker (installeert benodigde CLI tools in het image):
@@ -72,11 +59,10 @@ Build en run met Docker (installeert benodigde CLI tools in het image):
 ```bash
 docker build -t don-tools-api .
 docker run --rm -p 1338:1338 \
-  -e API_VERSION=1.0.0 \
-  -e HARVEST_ENABLED=true \
   -e PDOK_REGISTER_ENDPOINT=https://register.example/v1/apis \
-  -e PDOK_INDEX_URL=https://api.pdok.nl/index.json \
-  -e PDOK_ORGANISATION_URI=https://www.pdok.nl \
+  -e AUTH_TOKEN_URL=https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token \
+  -e AUTH_CLIENT_ID=don-admin-client \
+  -e AUTH_CLIENT_SECRET=... \
   don-tools-api
 ```
 

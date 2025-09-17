@@ -45,7 +45,6 @@ func main() {
 	harvesterSvc := services.NewHarvesterServiceFromEnv()
 	controller := handler.NewToolsController(brunoSvc, postmanSvc, linterSvc)
 	router := api.NewRouter(version, controller)
-
 	ctx, _ := context.WithCancel(context.Background())
 	jobs.SchedulePDOKHarvest(ctx, harvesterSvc)
 

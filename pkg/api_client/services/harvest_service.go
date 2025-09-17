@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -25,6 +26,9 @@ const (
 type HarvesterService struct {
 	httpClient       *http.Client
 	registerEndpoint string
+	tokenURL         string
+	clientID         string
+	clientSecret     string
 }
 
 // NewHarvesterService maakt een nieuwe service met een verplicht register endpoint
@@ -39,10 +43,16 @@ func NewHarvesterService(registerEndpoint string) *HarvesterService {
 // PDOK_REGISTER_ENDPOINT bepaalt het POST endpoint per omgeving.
 func NewHarvesterServiceFromEnv() *HarvesterService {
 	reg := strings.TrimSpace(os.Getenv("PDOK_REGISTER_ENDPOINT"))
-	if reg == "" {
-		reg = "https://api.don.apps.digilab.network/api-register/v1/apis"
+	s := NewHarvesterService(reg)
+	// Auth config
+	s.tokenURL = strings.TrimSpace(os.Getenv("AUTH_TOKEN_URL"))
+	if s.tokenURL == "" {
+		// sensible default for DON digilab
+		s.tokenURL = "https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token"
 	}
-	return NewHarvesterService(reg)
+	s.clientID = strings.TrimSpace(os.Getenv("AUTH_CLIENT_ID"))
+	s.clientSecret = strings.TrimSpace(os.Getenv("AUTH_CLIENT_SECRET"))
+	return s
 }
 
 // RunOnce voert een harvest uit voor één bron
@@ -90,6 +100,13 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 		oasPath = defaultOASPath
 	}
 
+	// Get bearer token once (required)
+	token, err := s.getAccessToken(ctx)
+	if err != nil {
+		return fmt.Errorf("obtain token: %w", err)
+	}
+
+	var aggErrs []string
 	for _, href := range hrefs {
 		oasURL := deriveOASURLWith(href, uiSuffix, oasPath)
 		payload := models.ApiPost{
@@ -97,35 +114,115 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 			OrganisationUri: src.OrganisationUri,
 			Contact:         src.Contact,
 		}
-		fmt.Printf("Payload: %+v\n", payload)
-		if err := s.postAPI(ctx, payload); err != nil {
-			return fmt.Errorf("post %s failed: %w", oasURL, err)
+		status, _, err := s.postAPI(ctx, payload, token)
+		if err != nil {
+			if status == http.StatusBadRequest {
+				msg := fmt.Sprintf("post %s failed: %v", oasURL, err)
+				fmt.Println("[harvest]", msg)
+				aggErrs = append(aggErrs, msg)
+				continue
+			}
 		}
+	}
+	if len(aggErrs) > 0 {
+		return fmt.Errorf("%d failures; first: %s", len(aggErrs), aggErrs[0])
 	}
 	return nil
 }
 
 // postAPI stuurt de registratie-payload naar het geconfigureerde endpoint
-func (s *HarvesterService) postAPI(ctx context.Context, payload models.ApiPost) error {
+func (s *HarvesterService) postAPI(ctx context.Context, payload models.ApiPost, bearer string) (int, string, error) {
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.registerEndpoint, bytes.NewReader(b))
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(bearer) != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return err
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+	body := strings.TrimSpace(string(data))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return resp.StatusCode, body, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+	return resp.StatusCode, body, nil
+}
+
+func (s *HarvesterService) putAPI(ctx context.Context, payload models.ApiPost, bearer string) (int, string, error) {
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return 0, "", err
+	}
+	// Id for PUT comes from path param; we use the OAS URL as identifier
+	id := url.PathEscape(payload.OasUrl)
+	putURL := strings.TrimRight(s.registerEndpoint, "/") + "/" + id
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, putURL, bytes.NewReader(b))
+	if err != nil {
+		return 0, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(bearer) != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+	body := strings.TrimSpace(string(data))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return resp.StatusCode, body, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+	return resp.StatusCode, body, nil
+}
+
+// getAccessToken retrieves an OAuth2 access token via client_credentials
+func (s *HarvesterService) getAccessToken(ctx context.Context) (string, error) {
+	if s.tokenURL == "" || s.clientID == "" || s.clientSecret == "" {
+		return "", errors.New("auth not configured (AUTH_TOKEN_URL, AUTH_CLIENT_ID, AUTH_CLIENT_SECRET)")
+	}
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", s.clientID)
+	form.Set("client_secret", s.clientSecret)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+		return "", fmt.Errorf("token endpoint status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
 	}
-	return nil
+	var tok struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(tok.AccessToken) == "" {
+		return "", errors.New("empty access_token in response")
+	}
+	return tok.AccessToken, nil
 }
 
 // deriveOASURLWith bepaalt de OAS-URL op basis van href, uiSuffix en oasPath
