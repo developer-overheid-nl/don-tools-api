@@ -58,7 +58,13 @@ func (s *LinterService) LintURL(ctx context.Context, url string) (*models.LintRe
 		"-f", "json",
 		url,
 	)
+	log.Printf("[LinterService] Run: %v", cmd.Args)
 	output, err := cmd.CombinedOutput()
+	log.Printf("[lint] run: %v", cmd.Args)
+	log.Printf("[lint] output:\n%s", output)
+	if _, ok := err.(*exec.ExitError); ok && len(output) > 0 {
+		err = nil
+	}
 	// Bouw resultaat
 	return s.buildResult(string(output), err, url), err
 }
@@ -150,7 +156,14 @@ func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.Lint
 		"-f", "json",
 		f,
 	)
+	log.Printf("[LinterService] Run: %v", cmd.Args)
 	output, err := cmd.CombinedOutput()
+	log.Printf("[lint] run: %v", cmd.Args)
+	log.Printf("[lint] output:\n%s", output)
+	if _, ok := err.(*exec.ExitError); ok && len(output) > 0 {
+		err = nil
+	}
+
 	return s.buildResult(string(output), err, "body"), err
 }
 
