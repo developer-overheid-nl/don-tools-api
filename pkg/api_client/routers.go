@@ -52,6 +52,7 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 	})
 
 	gen := f.Generator()
+
 	gen.API().Components.Responses["404"] = &openapi.ResponseOrRef{
 		Reference: &openapi.Reference{
 			Ref: "https://static.developer.overheid.nl/adr/components.yaml#/responses/404",
@@ -86,26 +87,12 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 	// Converters & lint
 	tools := root.Group("", "Tools", "Conversies en hulpmiddelen")
 
-	// GET/POST /v1/bruno/convert
-	tools.GET("/bruno/convert",
-		[]fizz.OperationOption{
-			fizz.ID("convertOpenAPIToBruno"),
-			fizz.Summary("Maak Bruno-collectie"),
-			fizz.Description("Converteert OpenAPI naar Bruno ZIP. Gebruik query parameter 'oasUrl' of POST body met OAS."),
-			fizz.Security(&openapi.SecurityRequirement{
-				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
-			}),
-			apiVersionHeader,
-			notFoundResponse,
-		},
-		tonic.Handler(controller.GenerateBrunoFromOASGET, 200),
-	)
+	// POST /v1/bruno/convert
 	tools.POST("/bruno/convert",
 		[]fizz.OperationOption{
 			fizz.ID("convertOpenAPIToBrunoPost"),
 			fizz.Summary("Maak Bruno-collectie (POST)"),
-			fizz.Description("Converteert OpenAPI naar Bruno ZIP. Body bevat het volledige OpenAPI document (JSON of YAML)."),
+            fizz.Description("Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools:read"},
@@ -116,26 +103,12 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.GenerateBrunoFromOASPOST, 200),
 	)
 
-	// GET/POST /v1/postman/convert
-	tools.GET("/postman/convert",
-		[]fizz.OperationOption{
-			fizz.ID("convertOpenAPIToPostman"),
-			fizz.Summary("Maak Postman-collectie"),
-			fizz.Description("Converteert OpenAPI naar Postman Collection JSON. Gebruik query parameter 'oasUrl' of POST body met OAS."),
-			fizz.Security(&openapi.SecurityRequirement{
-				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
-			}),
-			apiVersionHeader,
-			notFoundResponse,
-		},
-		tonic.Handler(controller.GeneratePostmanFromOASGET, 200),
-	)
+	// POST /v1/postman/convert
 	tools.POST("/postman/convert",
 		[]fizz.OperationOption{
 			fizz.ID("convertOpenAPIToPostmanPost"),
 			fizz.Summary("Maak Postman-collectie (POST)"),
-			fizz.Description("Converteert OpenAPI naar Postman Collection JSON. Body bevat het volledige OpenAPI document (JSON of YAML)."),
+            fizz.Description("Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools:read"},
@@ -146,26 +119,12 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.GeneratePostmanFromOASPOST, 200),
 	)
 
-	// GET/POST /v1/lint
-	tools.GET("/lint",
-		[]fizz.OperationOption{
-			fizz.ID("lintOpenAPI"),
-			fizz.Summary("Lint OpenAPI"),
-			fizz.Description("Lint een OpenAPI specificatie met de DON ADR ruleset. Gebruik query parameter 'oasUrl'."),
-			fizz.Security(&openapi.SecurityRequirement{
-				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
-			}),
-			apiVersionHeader,
-			notFoundResponse,
-		},
-		tonic.Handler(controller.LintOpenAPIGET, 200),
-	)
+	// POST /v1/lint
 	tools.POST("/lint",
 		[]fizz.OperationOption{
 			fizz.ID("lintOpenAPIPost"),
 			fizz.Summary("Lint OpenAPI (POST)"),
-			fizz.Description("Lint een OpenAPI specificatie met de DON ADR ruleset. Body bevat het volledige OpenAPI document (JSON of YAML)."),
+            fizz.Description("Lint een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools:read"},

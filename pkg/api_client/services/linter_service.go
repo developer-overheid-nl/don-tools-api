@@ -1,20 +1,20 @@
 package services
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"math"
-	"os"
+    "context"
+    "fmt"
+    "log"
+    "math"
+    "os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
-	openapiParser "github.com/developer-overheid-nl/don-tools-api/pkg/api_client/helper/openapi"
-	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
-	"github.com/google/uuid"
+    openapiParser "github.com/developer-overheid-nl/don-tools-api/pkg/api_client/helper/openapi"
+    "github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
+    "github.com/google/uuid"
 )
 
 // LinterService wrapt het aanroepen van Spectral

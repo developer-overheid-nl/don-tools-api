@@ -1,8 +1,11 @@
 package openapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -109,19 +112,39 @@ func toString(v interface{}) string {
 func strconvItoa(i int) string  { return fmt.Sprintf("%d", i) }
 func fmtFloat(f float64) string { return fmt.Sprintf("%f", f) }
 
-func GetOASFromBody(body *models.OASBody) []byte {
-    if body == nil {
-        return nil
-    }
-    // Geef voorkeur aan Raw indien aanwezig
-    if len(body.Raw) > 0 {
-        return body.Raw
-    }
-    // Als OAS als object aanwezig is, marshal terug naar bytes
-    if len(body.OAS) > 0 {
-        if buf, err := json.Marshal(body.OAS); err == nil {
-            return buf
-        }
-    }
-    return nil
+func GetOASFromBody(body *models.OasInput) []byte {
+	if body == nil {
+		return nil
+	}
+	// 1) Voorkeur: URL ophalen als opgegeven
+	if u := strings.TrimSpace(body.OasUrl); u != "" {
+		if b, err := FetchURL(u); err == nil {
+			return b
+		}
+		return nil
+	}
+	// 2) Fallback: body-string (JSON of YAML)
+	if s := strings.TrimSpace(body.OasBody); s != "" {
+		return []byte(s)
+	}
+	return nil
+}
+
+// FetchURL haalt de inhoud op van een URL met een korte timeout
+func FetchURL(rawURL string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d bij ophalen van URL", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
 }

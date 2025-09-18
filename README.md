@@ -22,18 +22,24 @@ De API luistert op poort `1338`.
 ## Endpoints
 
 - Bruno collectie genereren
-  - `GET /v1/bruno/convert?oasUrl=https://example.com/openapi.yaml`
-  - `POST /v1/bruno/convert` (body = OpenAPI JSON/YAML)
+  - `POST /v1/bruno/convert`
+  - Body (OasInput): één van
+    - `{ "oasUrl": "https://example.com/openapi.yaml" }`
+    - `{ "oasBody": "<stringified JSON of YAML>" }`
   - Response: `application/octet-stream` (ZIP) met `Content-Disposition: attachment`
 
 - Postman collectie genereren
-  - `GET /v1/postman/convert?oasUrl=https://example.com/openapi.yaml`
-  - `POST /v1/postman/convert` (body = OpenAPI JSON/YAML)
+  - `POST /v1/postman/convert`
+  - Body (OasInput): één van
+    - `{ "oasUrl": "https://example.com/openapi.yaml" }`
+    - `{ "oasBody": "<stringified JSON of YAML>" }`
   - Response: `application/json` met `Content-Disposition: attachment`
 
 - Lint OpenAPI (ADR 2.1 ruleset)
-  - `GET /v1/lint?oasUrl=https://example.com/openapi.yaml`
-  - `POST /v1/lint` (body = OpenAPI JSON/YAML)
+  - `POST /v1/lint`
+  - Body (OasInput): één van
+    - `{ "oasUrl": "https://example.com/openapi.yaml" }`
+    - `{ "oasBody": "<stringified JSON of YAML>" }`
   - Response: JSON met lintresultaten + score
 
 - OpenAPI documentatie
