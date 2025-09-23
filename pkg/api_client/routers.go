@@ -71,6 +71,30 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		},
 	}
 
+	if gen.API().Components.SecuritySchemes == nil {
+		gen.API().Components.SecuritySchemes = map[string]*openapi.SecuritySchemeOrRef{}
+	}
+	gen.API().Components.SecuritySchemes["apiKey"] = &openapi.SecuritySchemeOrRef{
+		SecurityScheme: &openapi.SecurityScheme{
+			Type: "apiKey",
+			In:   "header",
+			Name: "X-API-Key",
+		},
+	}
+	gen.API().Components.SecuritySchemes["clientCredentials"] = &openapi.SecuritySchemeOrRef{
+		SecurityScheme: &openapi.SecurityScheme{
+			Type: "oauth2",
+			Flows: &openapi.OAuthFlows{
+				ClientCredentials: &openapi.OAuthFlow{
+					TokenURL: "https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token",
+					Scopes: map[string]string{
+						"tools:read": "Toegang tot de tools endpoints",
+					},
+				},
+			},
+		},
+	}
+
 	info := &openapi.Info{
 		Title:       "Tools API v1",
 		Description: "API van het Tools (apis.developer.overheid.nl)",
@@ -90,9 +114,9 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 	// POST /v1/bruno/convert
 	tools.POST("/bruno/convert",
 		[]fizz.OperationOption{
-			fizz.ID("convertOpenAPIToBrunoPost"),
+			fizz.ID("CreateBrunoCollection"),
 			fizz.Summary("Maak Bruno-collectie (POST)"),
-            fizz.Description("Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
+			fizz.Description("Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools:read"},
@@ -106,9 +130,9 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 	// POST /v1/postman/convert
 	tools.POST("/postman/convert",
 		[]fizz.OperationOption{
-			fizz.ID("convertOpenAPIToPostmanPost"),
+			fizz.ID("CreatePostmanCollection"),
 			fizz.Summary("Maak Postman-collectie (POST)"),
-            fizz.Description("Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
+			fizz.Description("Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools:read"},
@@ -119,12 +143,28 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.GeneratePostmanFromOASPOST, 200),
 	)
 
+	// POST /v1/oas/convert
+	tools.POST("/oas/convert",
+		[]fizz.OperationOption{
+			fizz.ID("ConvertOAS"),
+			fizz.Summary("Converteer OpenAPI 3.0/3.1"),
+			fizz.Description("Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
+			fizz.Security(&openapi.SecurityRequirement{
+				"apiKey":            {},
+				"clientCredentials": {"tools:read"},
+			}),
+			apiVersionHeader,
+			notFoundResponse,
+		},
+		tonic.Handler(controller.ConvertOASVersion, 200),
+	)
+
 	// POST /v1/lint
 	tools.POST("/lint",
 		[]fizz.OperationOption{
 			fizz.ID("lintOpenAPIPost"),
 			fizz.Summary("Lint OpenAPI (POST)"),
-            fizz.Description("Lint een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
+			fizz.Description("Lint een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools:read"},
@@ -133,6 +173,22 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 			notFoundResponse,
 		},
 		tonic.Handler(controller.LintOAS, 200),
+	)
+
+	// POST /v1/arazzo
+	tools.POST("/arazzo",
+		[]fizz.OperationOption{
+			fizz.ID("arazzo"),
+			fizz.Summary("Visualiseer Arazzo (POST)"),
+			fizz.Description("Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid. Body: { arazzoUrl|arazzoBody, output? } waarbij output optioneel is en 'markdown', 'mermaid' of 'both' kan zijn."),
+			fizz.Security(&openapi.SecurityRequirement{
+				"apiKey":            {},
+				"clientCredentials": {"tools:read"},
+			}),
+			apiVersionHeader,
+			notFoundResponse,
+		},
+		tonic.Handler(controller.VisualizeArazzo, 200),
 	)
 
 	// 6) OpenAPI documentatie

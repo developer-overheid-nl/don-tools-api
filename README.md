@@ -35,6 +35,13 @@ De API luistert op poort `1338`.
     - `{ "oasBody": "<stringified JSON of YAML>" }`
   - Response: `application/json` met `Content-Disposition: attachment`
 
+- Convert OpenAPI versie 3.0 ⇆ 3.1
+  - `POST /v1/oas/convert-version`
+  - Body (OasInput): één van
+    - `{ "oasUrl": "https://example.com/openapi.yaml" }`
+    - `{ "oasBody": "<stringified JSON of YAML>" }`
+  - Response: OpenAPI document (JSON of YAML) met aangepaste versie
+
 - Lint OpenAPI (ADR 2.1 ruleset)
   - `POST /v1/lint`
   - Body (OasInput): één van
