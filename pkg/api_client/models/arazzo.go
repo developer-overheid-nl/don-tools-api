@@ -4,7 +4,6 @@ package models
 type ArazzoInput struct {
 	ArazzoUrl  string `json:"arazzoUrl,omitempty" binding:"omitempty,url"`
 	ArazzoBody string `json:"arazzoBody,omitempty"`
-	Output     string `json:"output,omitempty" binding:"omitempty,oneof=markdown mermaid both"`
 }
 
 // ArazzoVisualization holds the rendered Markdown and Mermaid snippets.

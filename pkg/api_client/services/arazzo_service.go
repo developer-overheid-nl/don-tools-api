@@ -11,18 +11,6 @@ import (
 	"github.com/invopop/yaml"
 )
 
-// ArazzoOutputMode represents the requested output variant for an Arazzo visualization.
-type ArazzoOutputMode string
-
-const (
-	// ArazzoOutputMarkdown returns only the markdown representation.
-	ArazzoOutputMarkdown ArazzoOutputMode = "markdown"
-	// ArazzoOutputMermaid returns only the mermaid diagram definition.
-	ArazzoOutputMermaid ArazzoOutputMode = "mermaid"
-	// ArazzoOutputBoth returns both markdown and mermaid outputs.
-	ArazzoOutputBoth ArazzoOutputMode = "both"
-)
-
 var (
 	// ErrEmptyArazzo is returned when the incoming Arazzo document contains no content.
 	ErrEmptyArazzo = errors.New("leeg Arazzo document (geen inhoud)")
@@ -39,7 +27,7 @@ func NewArazzoVizService() *ArazzoVizService {
 }
 
 // Visualize converts an Arazzo specification (YAML or JSON) into markdown and/or mermaid output.
-func (s *ArazzoVizService) Visualize(spec []byte, mode ArazzoOutputMode) (string, string, error) {
+func (s *ArazzoVizService) Visualize(spec []byte) (string, string, error) {
 	trimmed := strings.TrimSpace(string(spec))
 	if trimmed == "" {
 		return "", "", ErrEmptyArazzo
@@ -50,20 +38,8 @@ func (s *ArazzoVizService) Visualize(spec []byte, mode ArazzoOutputMode) (string
 		return "", "", err
 	}
 
-	if mode == "" {
-		mode = ArazzoOutputBoth
-	}
-
-	var mermaid string
-	if mode == ArazzoOutputMermaid || mode == ArazzoOutputBoth {
-		mermaid = buildMermaid(doc)
-	}
-
-	var markdown string
-	if mode == ArazzoOutputMarkdown || mode == ArazzoOutputBoth {
-		includeMermaid := mode == ArazzoOutputBoth
-		markdown = buildMarkdown(doc, includeMermaid, mermaid)
-	}
+	var mermaid = buildMermaid(doc)
+	var markdown = buildMarkdown(doc)
 
 	return markdown, mermaid, nil
 }
@@ -187,7 +163,7 @@ func buildMermaid(doc *models.ArazzoDocument) string {
 				label = stepTitle(step)
 			}
 			if step.OperationID != "" {
-				label = fmt.Sprintf("%s\\n(%s)", label, step.OperationID)
+				label = fmt.Sprintf("%s (%s)", label, step.OperationID)
 			}
 			b.WriteString(fmt.Sprintf("%s[\"%s\"]\n", nodeID, escapeMermaidText(label)))
 
@@ -201,18 +177,12 @@ func buildMermaid(doc *models.ArazzoDocument) string {
 	return b.String()
 }
 
-func buildMarkdown(doc *models.ArazzoDocument, includeMermaid bool, mermaid string) string {
+func buildMarkdown(doc *models.ArazzoDocument) string {
 	var b strings.Builder
 
 	b.WriteString("## " + doc.Title + "\n\n")
 	if doc.Description != "" {
 		b.WriteString(doc.Description + "\n\n")
-	}
-
-	if includeMermaid && strings.TrimSpace(mermaid) != "" {
-		b.WriteString("```mermaid\n")
-		b.WriteString(strings.TrimRight(mermaid, "\n") + "\n")
-		b.WriteString("```\n\n")
 	}
 
 	for _, flow := range doc.Flows {

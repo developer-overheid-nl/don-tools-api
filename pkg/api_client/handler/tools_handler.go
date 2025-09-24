@@ -142,9 +142,7 @@ func (tc *ToolsController) VisualizeArazzo(c *gin.Context, body *models.ArazzoIn
 		return nil, problem.NewBadRequest("", "Body ontbreekt of ongeldig: gebruik arazzoUrl of arazzoBody")
 	}
 
-	modeStr := strings.ToLower(strings.TrimSpace(body.Output))
-	mode := services.ArazzoOutputMode(modeStr)
-	markdown, mermaid, err := tc.Arazzo.Visualize(content, mode)
+	markdown, mermaid, err := tc.Arazzo.Visualize(content)
 	if err != nil {
 		switch {
 		case errors.Is(err, services.ErrEmptyArazzo):
@@ -157,15 +155,8 @@ func (tc *ToolsController) VisualizeArazzo(c *gin.Context, body *models.ArazzoIn
 	}
 
 	resp := &models.ArazzoVisualization{}
-	switch mode {
-	case services.ArazzoOutputMarkdown:
-		resp.Markdown = markdown
-	case services.ArazzoOutputMermaid:
-		resp.Mermaid = mermaid
-	default:
-		resp.Markdown = markdown
-		resp.Mermaid = mermaid
-	}
+	resp.Markdown = markdown
+	resp.Mermaid = mermaid
 
 	return resp, nil
 }
