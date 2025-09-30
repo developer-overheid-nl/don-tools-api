@@ -11,6 +11,7 @@ import (
 )
 
 // ScheduleHarvest zet een cron job op die de opgegeven bronnen harvest
+// ScheduleHarvest zet een cron job op die de opgegeven bronnen harvest
 func ScheduleHarvest(ctx context.Context, svc *services.HarvesterService, sources []models.HarvestSource) *cron.Cron {
 	spec := "0 6 * * *"
 	c := cron.New(cron.WithChain(
@@ -18,6 +19,7 @@ func ScheduleHarvest(ctx context.Context, svc *services.HarvesterService, source
 		cron.SkipIfStillRunning(cron.DefaultLogger),
 	))
 
+	// cron job
 	_, err := c.AddFunc(spec, func() {
 		jobCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
@@ -32,7 +34,21 @@ func ScheduleHarvest(ctx context.Context, svc *services.HarvesterService, source
 		return c
 	}
 
+	// start cron
 	c.Start()
+
+	// directe run bij opstart
+	go func() {
+		jobCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
+		for _, src := range sources {
+			if err := svc.RunOnce(jobCtx, src); err != nil {
+				fmt.Printf("[initial harvest %s] failed: %v\n", src.Name, err)
+			}
+		}
+	}()
+
+	// stoppen als context sluit
 	go func() {
 		<-ctx.Done()
 		c.Stop()
