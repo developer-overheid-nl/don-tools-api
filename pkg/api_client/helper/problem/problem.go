@@ -66,3 +66,12 @@ func NewForbidden(oasUri, detail string) APIError {
 		Detail:   detail,
 	}
 }
+
+func NewConflict(detail string) APIError {
+	return APIError{
+		Type:   "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/409",
+		Title:  "Conflict",
+		Status: 409,
+		Detail: detail,
+	}
+}

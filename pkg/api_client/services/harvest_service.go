@@ -46,10 +46,6 @@ func NewHarvesterServiceFromEnv() *HarvesterService {
 	s := NewHarvesterService(reg)
 	// Auth config
 	s.tokenURL = strings.TrimSpace(os.Getenv("AUTH_TOKEN_URL"))
-	if s.tokenURL == "" {
-		// sensible default for DON digilab
-		s.tokenURL = "https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token"
-	}
 	s.clientID = strings.TrimSpace(os.Getenv("AUTH_CLIENT_ID"))
 	s.clientSecret = strings.TrimSpace(os.Getenv("AUTH_CLIENT_SECRET"))
 	return s

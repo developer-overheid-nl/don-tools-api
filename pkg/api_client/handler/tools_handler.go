@@ -18,10 +18,11 @@ type ToolsController struct {
 	Linter    *services.LinterService
 	Converter *services.OASVersionService
 	Arazzo    *services.ArazzoVizService
+	Keycloak  *services.KeycloakService
 }
 
-func NewToolsController(bruno *services.BrunoService, postman *services.PostmanService, linter *services.LinterService, converter *services.OASVersionService, arazzo *services.ArazzoVizService) *ToolsController {
-	return &ToolsController{Bruno: bruno, Postman: postman, Linter: linter, Converter: converter, Arazzo: arazzo}
+func NewToolsController(bruno *services.BrunoService, postman *services.PostmanService, linter *services.LinterService, converter *services.OASVersionService, arazzo *services.ArazzoVizService, keycloak *services.KeycloakService) *ToolsController {
+	return &ToolsController{Bruno: bruno, Postman: postman, Linter: linter, Converter: converter, Arazzo: arazzo, Keycloak: keycloak}
 }
 
 /* ------------------------- LINT ------------------------- */
@@ -119,6 +120,37 @@ func (tc *ToolsController) ConvertOASVersion(c *gin.Context, body *models.OasInp
 	return nil
 }
 
+func (tc *ToolsController) GenerateOAS(c *gin.Context, body *models.OasInput) error {
+	content := openapi.GetOASFromBody(body)
+	if len(content) == 0 {
+		return problem.NewBadRequest("", "Body ontbreekt of ongeldig: gebruik oasUrl of oasBody")
+	}
+
+	converted, filename, err := tc.Converter.ConvertVersion(content)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrEmptyOAS):
+			return problem.NewBadRequest("", "Body ontbreekt of ongeldig: gebruik oasUrl of oasBody")
+		case errors.Is(err, services.ErrVersionFieldMissing):
+			return problem.NewBadRequest("", "OpenAPI document bevat geen geldig openapi versieveld")
+		case errors.Is(err, services.ErrUnsupportedOASVersion):
+			return problem.NewBadRequest("", "Alleen OpenAPI 3.0 en 3.1 worden ondersteund")
+		default:
+			return problem.NewInternalServerError(err.Error())
+		}
+	}
+
+	contentType := "application/json"
+	if strings.HasSuffix(strings.ToLower(filename), ".yaml") || strings.HasSuffix(strings.ToLower(filename), ".yml") {
+		contentType = "application/yaml"
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	c.Data(http.StatusOK, contentType, converted)
+	return nil
+}
+
 /* ------------------------- ARAZZO VISUALIZER ------------------------- */
 
 // POST /v1/arazzo
@@ -159,4 +191,28 @@ func (tc *ToolsController) VisualizeArazzo(c *gin.Context, body *models.ArazzoIn
 	resp.Mermaid = mermaid
 
 	return resp, nil
+}
+
+// POST /v1/keycloak/clients
+func (tc *ToolsController) CreateKeycloakClient(c *gin.Context, body *models.KeycloakClientInput) (*models.KeycloakClientResult, error) {
+	if body == nil || strings.TrimSpace(body.ClientName) == "" || strings.TrimSpace(body.Email) == "" {
+		return nil, problem.NewBadRequest("", "clientName en email zijn verplicht")
+	}
+	if tc.Keycloak == nil {
+		return nil, problem.NewInternalServerError("Keycloak service niet geconfigureerd")
+	}
+	res, err := tc.Keycloak.CreateClient(c.Request.Context(), *body)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrKeycloakConfig):
+			return nil, problem.NewInternalServerError("Keycloak configuratie ontbreekt")
+		case errors.Is(err, services.ErrKeycloakConflict):
+			return nil, problem.NewConflict("Keycloak client bestaat al")
+		case errors.Is(err, services.ErrKeycloakUnauthorized):
+			return nil, problem.NewForbidden("", "Geen toegang tot Keycloak admin API")
+		default:
+			return nil, problem.NewInternalServerError(err.Error())
+		}
+	}
+	return res, nil
 }

@@ -119,7 +119,7 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 			fizz.Description("Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
+				"clientCredentials": {"tools"},
 			}),
 			apiVersionHeader,
 			notFoundResponse,
@@ -135,7 +135,7 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 			fizz.Description("Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
+				"clientCredentials": {"tools"},
 			}),
 			apiVersionHeader,
 			notFoundResponse,
@@ -143,7 +143,6 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.GeneratePostmanFromOASPOST, 200),
 	)
 
-	// POST /v1/oas/convert
 	tools.POST("/oas/convert",
 		[]fizz.OperationOption{
 			fizz.ID("ConvertOAS"),
@@ -151,7 +150,7 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 			fizz.Description("Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
+				"clientCredentials": {"tools"},
 			}),
 			apiVersionHeader,
 			notFoundResponse,
@@ -159,15 +158,29 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.ConvertOASVersion, 200),
 	)
 
-	// POST /v1/lint
-	tools.POST("/lint",
+	tools.POST("/oas/generate",
 		[]fizz.OperationOption{
-			fizz.ID("lintOpenAPIPost"),
-			fizz.Summary("Lint OpenAPI (POST)"),
-			fizz.Description("Lint een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
+			fizz.ID("GenerateOAS"),
+			fizz.Summary("Generate OpenAPI"),
+			fizz.Description("Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
+				"clientCredentials": {"tools"},
+			}),
+			apiVersionHeader,
+			notFoundResponse,
+		},
+		tonic.Handler(controller.GenerateOAS, 200),
+	)
+
+	tools.POST("/oas/validate",
+		[]fizz.OperationOption{
+			fizz.ID("validatorOpenAPIPost"),
+			fizz.Summary("Validate OpenAPI (POST)"),
+			fizz.Description("Valideert een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML)."),
+			fizz.Security(&openapi.SecurityRequirement{
+				"apiKey":            {},
+				"clientCredentials": {"tools"},
 			}),
 			apiVersionHeader,
 			notFoundResponse,
@@ -175,20 +188,34 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.LintOAS, 200),
 	)
 
-	// POST /v1/arazzo
-	tools.POST("/arazzo",
+	tools.POST("/arazzo/parse",
 		[]fizz.OperationOption{
 			fizz.ID("arazzo"),
 			fizz.Summary("Visualiseer Arazzo (POST)"),
-			fizz.Description("Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid. Body: { arazzoUrl|arazzoBody, output? } waarbij output optioneel is en 'markdown', 'mermaid' of 'both' kan zijn."),
+			fizz.Description("Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid. Body: { arazzoUrl|arazzoBody }"),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
-				"clientCredentials": {"tools:read"},
+				"clientCredentials": {"tools"},
 			}),
 			apiVersionHeader,
 			notFoundResponse,
 		},
 		tonic.Handler(controller.VisualizeArazzo, 200),
+	)
+
+	tools.POST("/auth/clients",
+		[]fizz.OperationOption{
+			fizz.ID("untrustClient"),
+			fizz.Summary("Maak client (POST)"),
+			fizz.Description("Maak een client aan in via de admin API. Body bevat ClientName en Email."),
+			fizz.Security(&openapi.SecurityRequirement{
+				"apiKey":            {},
+				"clientCredentials": {"tools"},
+			}),
+			apiVersionHeader,
+			notFoundResponse,
+		},
+		tonic.Handler(controller.CreateKeycloakClient, 200),
 	)
 
 	// 6) OpenAPI documentatie

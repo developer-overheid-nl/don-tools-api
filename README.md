@@ -65,18 +65,4 @@ De harvester is op dit moment ingericht voor één bron (PDOK). De job bevat de 
 - Payload naar register (`ApiPost`):
   - `{ "oasUrl": "...", "organisationUri": "...", "contact": { ... } }`
 
-## Docker
-
-Build en run met Docker (installeert benodigde CLI tools in het image):
-
-```bash
-docker build -t don-tools-api .
-docker run --rm -p 1338:1338 \
-  -e PDOK_REGISTER_ENDPOINT=https://register.example/v1/apis \
-  -e AUTH_TOKEN_URL=https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token \
-  -e AUTH_CLIENT_ID=don-admin-client \
-  -e AUTH_CLIENT_SECRET=... \
-  don-tools-api
-```
-
 De server luistert in de container op poort `1338`.
