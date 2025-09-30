@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -103,6 +105,9 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 	}
 
 	var aggErrs []string
+	// (2 requests per seconde, burst van 1)
+	limiter := rate.NewLimiter(rate.Limit(2), 1)
+
 	for _, href := range hrefs {
 		oasURL := deriveOASURLWith(href, uiSuffix, oasPath)
 		payload := models.ApiPost{
@@ -110,20 +115,48 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 			OrganisationUri: src.OrganisationUri,
 			Contact:         src.Contact,
 		}
+
+		if err := limiter.Wait(ctx); err != nil {
+			return fmt.Errorf("limiter error: %w", err)
+		}
+
 		status, _, err := s.postAPI(ctx, payload, token)
 		if err != nil {
 			if status == http.StatusBadRequest {
-				msg := fmt.Sprintf("post %s failed: %v", oasURL, err)
-				fmt.Println("[harvest]", msg)
-				aggErrs = append(aggErrs, msg)
+				fmt.Printf("[harvest] bad request on %s: %v\n", oasURL, err)
 				continue
 			}
 		}
 	}
+
 	if len(aggErrs) > 0 {
 		return fmt.Errorf("%d failures; first: %s", len(aggErrs), aggErrs[0])
 	}
 	return nil
+}
+
+func (s *HarvesterService) harvestOne(ctx context.Context, oasURL string, src models.HarvestSource, token string, limiter *rate.Limiter) error {
+	payload := models.ApiPost{OasUrl: oasURL, OrganisationUri: src.OrganisationUri, Contact: src.Contact}
+	for attempt := 0; attempt < 5; attempt++ {
+		if err := limiter.Wait(ctx); err != nil {
+			return err
+		}
+		status, _, err := s.postAPI(ctx, payload, token)
+		if err == nil && status >= 200 && status < 300 {
+			return nil
+		}
+		if status == http.StatusBadRequest {
+			return fmt.Errorf("bad request for %s: %w", oasURL, err)
+		}
+		time.Sleep(backoff(attempt))
+	}
+	return fmt.Errorf("gave up on %s after retries", oasURL)
+}
+
+func backoff(attempt int) time.Duration {
+	base := time.Duration(200*(1<<attempt)) * time.Millisecond
+	jitter := time.Duration(rand.Int63n(int64(base / 2)))
+	return base + jitter
 }
 
 // postAPI stuurt de registratie-payload naar het geconfigureerde endpoint

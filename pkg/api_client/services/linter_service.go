@@ -22,53 +22,6 @@ type LinterService struct{}
 
 func NewLinterService() *LinterService { return &LinterService{} }
 
-// LintURL lint een OpenAPI via URL en geeft een LintResult terug
-func (s *LinterService) LintURL(ctx context.Context, url string) (*models.LintResult, error) {
-	// Controleer dat spectral beschikbaar is
-	if _, err := exec.LookPath("spectral"); err != nil {
-		now := time.Now()
-		res := &models.LintResult{
-			ID:        uuid.New().String(),
-			Successes: false,
-			Failures:  1,
-			Warnings:  0,
-			Score:     0,
-			Messages: []models.LintMessage{{
-				ID:        uuid.New().String(),
-				Code:      "lint-exec",
-				Severity:  "error",
-				CreatedAt: now,
-				Infos: []models.LintMessageInfo{{
-					ID:      uuid.New().String(),
-					Message: fmt.Sprintf("spectral CLI niet gevonden: %v", err),
-					Path:    url,
-				}},
-			}},
-			CreatedAt: now,
-		}
-		return res, fmt.Errorf("spectral CLI niet gevonden: %w", err)
-	}
-
-	cmd := exec.CommandContext(
-		ctx,
-		"spectral", "lint",
-		"-F", "error",
-		"-D",
-		"-r", "https://static.developer.overheid.nl/adr/2.1/ruleset.yaml",
-		"-f", "json",
-		url,
-	)
-	log.Printf("[LinterService] Run: %v", cmd.Args)
-	output, err := cmd.CombinedOutput()
-	log.Printf("[lint] run: %v", cmd.Args)
-	log.Printf("[lint] output:\n%s", output)
-	if _, ok := err.(*exec.ExitError); ok && len(output) > 0 {
-		err = nil
-	}
-	// Bouw resultaat
-	return s.buildResult(string(output), err, url), err
-}
-
 // LintBytes lint een OpenAPI document uit bytes door via een tijdelijk bestand te linten
 func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.LintResult, error) {
 	if _, err := exec.LookPath("spectral"); err != nil {

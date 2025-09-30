@@ -31,7 +31,10 @@ func init() {
 }
 
 func main() {
-	_ = godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Geen .env bestand gevonden, ga ervan uit dat alle config via omgevingsvariabelen wordt geleverd", err)
+	}
 
 	version := os.Getenv("API_VERSION")
 	if version == "" {
