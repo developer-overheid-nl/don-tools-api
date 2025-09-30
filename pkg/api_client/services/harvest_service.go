@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -133,30 +132,6 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 		return fmt.Errorf("%d failures; first: %s", len(aggErrs), aggErrs[0])
 	}
 	return nil
-}
-
-func (s *HarvesterService) harvestOne(ctx context.Context, oasURL string, src models.HarvestSource, token string, limiter *rate.Limiter) error {
-	payload := models.ApiPost{OasUrl: oasURL, OrganisationUri: src.OrganisationUri, Contact: src.Contact}
-	for attempt := 0; attempt < 5; attempt++ {
-		if err := limiter.Wait(ctx); err != nil {
-			return err
-		}
-		status, _, err := s.postAPI(ctx, payload, token)
-		if err == nil && status >= 200 && status < 300 {
-			return nil
-		}
-		if status == http.StatusBadRequest {
-			return fmt.Errorf("bad request for %s: %w", oasURL, err)
-		}
-		time.Sleep(backoff(attempt))
-	}
-	return fmt.Errorf("gave up on %s after retries", oasURL)
-}
-
-func backoff(attempt int) time.Duration {
-	base := time.Duration(200*(1<<attempt)) * time.Millisecond
-	jitter := time.Duration(rand.Int63n(int64(base / 2)))
-	return base + jitter
 }
 
 // postAPI stuurt de registratie-payload naar het geconfigureerde endpoint
