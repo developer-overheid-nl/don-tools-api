@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -87,11 +89,20 @@ func ZipDirectory(dir string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+var converterLog sync.Map
+
+func logConverter(key, format string, args ...any) {
+	if _, loaded := converterLog.LoadOrStore(key, struct{}{}); !loaded {
+		log.Printf(format, args...)
+	}
+}
+
 // ExecConverter probeert eerst een rechtstreeks geinstalleerde CLI te draaien en
 // valt terug op npx wanneer de binary ontbreekt. Dit voorkomt dat npx telkens
 // een npm-installatie uitvoert, wat veel tijd kost.
 func ExecConverter(timeout time.Duration, bin string, args ...string) (string, string, error) {
 	if path, err := exec.LookPath(bin); err == nil {
+		logConverter("converter-hit:"+bin, "[converter] gebruik %s (%s)", bin, path)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
@@ -112,6 +123,7 @@ func ExecConverter(timeout time.Duration, bin string, args ...string) (string, s
 	}
 
 	// Binary niet gevonden: val terug op npx voor lokale ontwikkelaars
+	logConverter("converter-miss:"+bin, "[converter] %s niet gevonden, val terug op npx; conversies worden trager", bin)
 	return ExecNPX(timeout, append([]string{bin}, args...)...)
 }
 
