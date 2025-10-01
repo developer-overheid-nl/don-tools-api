@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"math"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	openapiParser "github.com/developer-overheid-nl/don-tools-api/pkg/api_client/helper/openapi"
@@ -16,10 +18,56 @@ import (
 	"github.com/google/uuid"
 )
 
+const spectralRulesetEnv = "SPECTRAL_RULESET_PATH"
+
 // LinterService wrapt het aanroepen van Spectral
-type LinterService struct{}
+type LinterService struct {
+	// cachet het rulesetbestand zodat spectral niet bij elke request over het netwerk hoeft
+	rulesetOnce sync.Once
+	rulesetPath string
+	rulesetErr  error
+}
 
 func NewLinterService() *LinterService { return &LinterService{} }
+
+//go:embed ruleset/adr-ruleset.yaml
+var embeddedRuleset []byte
+
+func (s *LinterService) resolveRulesetPath() (string, error) {
+	if env := strings.TrimSpace(os.Getenv(spectralRulesetEnv)); env != "" {
+		return env, nil
+	}
+
+	s.rulesetOnce.Do(func() {
+		if len(embeddedRuleset) == 0 {
+			s.rulesetErr = fmt.Errorf("ingebedde spectral ruleset ontbreekt")
+			return
+		}
+		f, err := os.CreateTemp("", "spectral-ruleset-*.yaml")
+		if err != nil {
+			s.rulesetErr = fmt.Errorf("kon tijdelijk ruleset-bestand niet maken: %w", err)
+			return
+		}
+		if _, err := f.Write(embeddedRuleset); err != nil {
+			_ = f.Close()
+			s.rulesetErr = fmt.Errorf("kon ruleset niet schrijven: %w", err)
+			return
+		}
+		if err := f.Close(); err != nil {
+			s.rulesetErr = fmt.Errorf("kon ruleset-bestand niet sluiten: %w", err)
+			return
+		}
+		s.rulesetPath = f.Name()
+	})
+
+	if s.rulesetErr != nil {
+		return "", s.rulesetErr
+	}
+	if s.rulesetPath == "" {
+		return "", fmt.Errorf("ruleset-pad niet beschikbaar")
+	}
+	return s.rulesetPath, nil
+}
 
 // LintBytes lint een OpenAPI document uit bytes door via een tijdelijk bestand te linten
 func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.LintResult, error) {
@@ -99,12 +147,37 @@ func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.Lint
 		return res, err
 	}
 
+	rulesetPath, err := s.resolveRulesetPath()
+	if err != nil {
+		now := time.Now()
+		res := &models.LintResult{
+			ID:        uuid.New().String(),
+			Successes: false,
+			Failures:  1,
+			Warnings:  0,
+			Score:     0,
+			Messages: []models.LintMessage{{
+				ID:        uuid.New().String(),
+				Code:      "lint-exec",
+				Severity:  "error",
+				CreatedAt: now,
+				Infos: []models.LintMessageInfo{{
+					ID:      uuid.New().String(),
+					Message: err.Error(),
+					Path:    "ruleset",
+				}},
+			}},
+			CreatedAt: now,
+		}
+		return res, err
+	}
+
 	cmd := exec.CommandContext(
 		ctx,
 		"spectral", "lint",
 		"-F", "error",
 		"-D",
-		"-r", "https://static.developer.overheid.nl/adr/2.1/ruleset.yaml",
+		"-r", rulesetPath,
 		"-f", "json",
 		f,
 	)
