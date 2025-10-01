@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"os/exec"
@@ -109,10 +108,7 @@ func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.Lint
 		"-f", "json",
 		f,
 	)
-	log.Printf("[LinterService] Run: %v", cmd.Args)
 	output, err := cmd.CombinedOutput()
-	log.Printf("[lint] run: %v", cmd.Args)
-	log.Printf("[lint] output:\n%s", output)
 	if _, ok := err.(*exec.ExitError); ok && len(output) > 0 {
 		err = nil
 	}
@@ -190,7 +186,6 @@ func (s *LinterService) buildResult(output string, lintErr error, sourcePath str
 		}
 	}
 	score, _ := ComputeAdrScore(msgs)
-	log.Printf("[lint] messages=%d errors=%d warnings=%d score=%d", len(msgs), errCount, warnCount, score)
 
 	return &models.LintResult{
 		ID:        uuid.New().String(),
