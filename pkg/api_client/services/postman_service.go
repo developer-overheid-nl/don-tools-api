@@ -1,11 +1,11 @@
 package services
 
 import (
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
-    "time"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
 // PostmanService converteert OAS naar Postman Collections
@@ -19,11 +19,11 @@ func NewPostmanService() *PostmanService {
 // ConvertOpenAPIToPostman converteert een OAS naar een Postman Collection JSON
 // Retourneert de json-bytes en een standaard bestandsnaam.
 func (s *PostmanService) ConvertOpenAPIToPostman(oas []byte) ([]byte, string, error) {
-    if len(strings.TrimSpace(string(oas))) == 0 {
-        return nil, "", ErrEmptyOAS
-    }
-    // Schrijf OAS naar tijdelijk bestand
-    workDir, err := os.MkdirTemp("", "oas2postman-*")
+	if len(strings.TrimSpace(string(oas))) == 0 {
+		return nil, "", ErrEmptyOAS
+	}
+	// Schrijf OAS naar tijdelijk bestand
+	workDir, err := os.MkdirTemp("", "oas2postman-*")
 	if err != nil {
 		return nil, "", err
 	}
@@ -37,8 +37,8 @@ func (s *PostmanService) ConvertOpenAPIToPostman(oas []byte) ([]byte, string, er
 
 	outFile := filepath.Join(workDir, "collection.json")
 
-	// Run: npx -y openapi-to-postmanv2 -s <inFile> -o <outFile>
-	if _, _, err := ExecNPX(2*time.Minute, "openapi-to-postmanv2", "-s", inFile, "-o", outFile); err != nil {
+	// Run: openapi-to-postmanv2 -s <inFile> -o <outFile>
+	if _, _, err := ExecConverter(2*time.Minute, "openapi-to-postmanv2", "-s", inFile, "-o", outFile); err != nil {
 		return nil, "", fmt.Errorf("%w", err)
 	}
 

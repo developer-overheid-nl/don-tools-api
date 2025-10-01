@@ -87,6 +87,34 @@ func ZipDirectory(dir string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// ExecConverter probeert eerst een rechtstreeks geinstalleerde CLI te draaien en
+// valt terug op npx wanneer de binary ontbreekt. Dit voorkomt dat npx telkens
+// een npm-installatie uitvoert, wat veel tijd kost.
+func ExecConverter(timeout time.Duration, bin string, args ...string) (string, string, error) {
+	if path, err := exec.LookPath(bin); err == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, path, args...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		if err := cmd.Run(); err != nil {
+			serr := strings.TrimSpace(stderr.String())
+			if serr != "" {
+				return stdout.String(), stderr.String(), fmt.Errorf("converter fout: %v: %s", err, serr)
+			}
+			return stdout.String(), stderr.String(), fmt.Errorf("converter fout: %v", err)
+		}
+
+		return stdout.String(), stderr.String(), nil
+	}
+
+	// Binary niet gevonden: val terug op npx voor lokale ontwikkelaars
+	return ExecNPX(timeout, append([]string{bin}, args...)...)
+}
+
 // ExecNPX voert een npx-commando uit met timeout en geeft stdout/stderr terug
 func ExecNPX(timeout time.Duration, args ...string) (string, string, error) {
 	// Controleer of npx beschikbaar is

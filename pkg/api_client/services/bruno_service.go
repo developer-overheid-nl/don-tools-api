@@ -47,8 +47,8 @@ func (s *BrunoService) ConvertOpenAPIToBruno(oas []byte) ([]byte, string, error)
 		return nil, "", err
 	}
 
-	// Run: npx -y openapi-to-bruno generate <inFile> <outDir>
-	if _, _, err := ExecNPX(2*time.Minute, "openapi-to-bruno", "generate", inFile, outDir); err != nil {
+	// Run: openapi-to-bruno generate <inFile> <outDir>
+	if _, _, err := ExecConverter(2*time.Minute, "openapi-to-bruno", "generate", inFile, outDir); err != nil {
 		return nil, "", fmt.Errorf("%w", err)
 	}
 
