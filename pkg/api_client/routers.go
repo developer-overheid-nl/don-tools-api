@@ -188,6 +188,21 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		tonic.Handler(controller.LintOAS, 200),
 	)
 
+	tools.POST("/oas/dereference",
+		[]fizz.OperationOption{
+			fizz.ID("DereferenceOAS"),
+			fizz.Summary("Dereference OpenAPI"),
+			fizz.Description("Haalt externe $ref verwijzingen op en levert één compleet OpenAPI document terug. Body: { oasUrl } of { oasBody }."),
+			fizz.Security(&openapi.SecurityRequirement{
+				"apiKey":            {},
+				"clientCredentials": {"tools"},
+			}),
+			apiVersionHeader,
+			notFoundResponse,
+		},
+		tonic.Handler(controller.DereferenceOAS, 200),
+	)
+
 	tools.POST("/arazzo/parse",
 		[]fizz.OperationOption{
 			fizz.ID("arazzo"),
@@ -207,7 +222,7 @@ func NewRouter(apiVersion string, controller *handler.ToolsController) *fizz.Fiz
 		[]fizz.OperationOption{
 			fizz.ID("untrustClient"),
 			fizz.Summary("Maak client (POST)"),
-			fizz.Description("Maak een client aan in via de admin API. Body bevat ClientName en Email."),
+			fizz.Description("Maak een client aan via de admin API. Body bevat Email."),
 			fizz.Security(&openapi.SecurityRequirement{
 				"apiKey":            {},
 				"clientCredentials": {"tools"},

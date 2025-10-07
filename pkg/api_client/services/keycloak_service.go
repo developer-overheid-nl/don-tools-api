@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
+	"github.com/google/uuid"
 )
 
 var (
@@ -25,14 +26,15 @@ var (
 	ErrKeycloakUnauthorized = errors.New("autorisatie voor keycloak mislukt")
 )
 
+const keycloakClientDescription = "Dit is een read only api key, meer info: https://developer.overheid.nl/"
+
 // KeycloakService handles interactions with the Keycloak Admin API.
 type KeycloakService struct {
-	httpClient        *http.Client
-	adminClientsURL   string
-	tokenURL          string
-	clientID          string
-	clientSecret      string
-	tokenRequestExtra map[string]string
+	httpClient      *http.Client
+	adminClientsURL string
+	tokenURL        string
+	clientID        string
+	clientSecret    string
 }
 
 // NewKeycloakService creates a new service with the given configuration.
@@ -51,16 +53,21 @@ func NewKeycloakService(httpClient *http.Client, adminClientsURL, tokenURL, clie
 
 // NewKeycloakServiceFromEnv constructs the service using environment variables.
 func NewKeycloakServiceFromEnv() *KeycloakService {
-	base := strings.TrimSpace(os.Getenv("KEYCLOAK_ADMIN_BASE_URL"))
+	base := strings.TrimSpace(os.Getenv("KEYCLOAK_BASE_URL"))
 	realm := strings.TrimSpace(os.Getenv("KEYCLOAK_REALM"))
-	if realm == "" {
-		realm = "don"
-	}
-	var adminURL string
+	var adminURL, tokenURL string
 	if base != "" {
-		adminURL = strings.TrimSuffix(base, "/") + "/admin/realms/" + realm + "/clients"
+		b := strings.TrimSuffix(base, "/")
+		adminURL = fmt.Sprintf("%s/admin/realms/%s/clients", b, url.PathEscape(realm))
+		tokenURL = fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token", base, url.PathEscape(realm))
 	}
-	return NewKeycloakService(nil, adminURL, os.Getenv("AUTH_TOKEN_URL"), os.Getenv("AUTH_CLIENT_ID"), os.Getenv("AUTH_CLIENT_SECRET"))
+
+	return NewKeycloakService(nil,
+		adminURL,
+		tokenURL,
+		os.Getenv("AUTH_CLIENT_ID"),
+		os.Getenv("AUTH_CLIENT_SECRET"),
+	)
 }
 
 // CreateClient creates a new client in Keycloak using the admin API.
@@ -68,12 +75,14 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 	if strings.TrimSpace(s.adminClientsURL) == "" {
 		return nil, ErrKeycloakConfig
 	}
+
 	token, err := s.fetchToken(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	payload := buildKeycloakPayload(input)
+	clientID := uuid.New().String()
+	payload := buildKeycloakPayload(clientID, input.Email)
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -91,15 +100,14 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 	respBody := strings.TrimSpace(string(data))
 
 	switch resp.StatusCode {
 	case http.StatusCreated, http.StatusNoContent:
 		return &models.KeycloakClientResult{
-			Status:   resp.StatusCode,
-			Location: resp.Header.Get("Location"),
-			Message:  "Keycloak client aangemaakt",
+			APIKey: clientID,
 		}, nil
 	case http.StatusConflict:
 		return nil, ErrKeycloakConflict
@@ -113,17 +121,22 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 	}
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (s *KeycloakService) fetchToken(ctx context.Context) (string, error) {
-	if strings.TrimSpace(s.tokenURL) == "" || strings.TrimSpace(s.clientID) == "" || strings.TrimSpace(s.clientSecret) == "" {
+	if s.tokenURL == "" || s.clientID == "" || s.clientSecret == "" {
 		return "", ErrKeycloakConfig
 	}
+
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
 	form.Set("client_id", s.clientID)
 	form.Set("client_secret", s.clientSecret)
-	for k, v := range s.tokenRequestExtra {
-		form.Set(k, v)
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -136,25 +149,30 @@ func (s *KeycloakService) fetchToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return "", fmt.Errorf("token request status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+		return "", fmt.Errorf("token request %s -> %d: %s", s.tokenURL, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
+
 	var tok struct {
 		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
-		return "", err
+	if err := json.Unmarshal(body, &tok); err != nil {
+		return "", fmt.Errorf("token parse error: %v; body=%s", err, string(body))
 	}
-	if strings.TrimSpace(tok.AccessToken) == "" {
+	if tok.AccessToken == "" {
 		return "", errors.New("empty access_token in response")
 	}
 	return tok.AccessToken, nil
 }
 
-func buildKeycloakPayload(input models.KeycloakClientInput) map[string]any {
+func buildKeycloakPayload(clientID, email string) map[string]any {
 	payload := map[string]any{
-		"clientId":                     input.ClientName,
+		"clientId":                     clientID,
+		"name":                         clientID,
 		"enabled":                      true,
 		"publicClient":                 true,
 		"directAccessGrantsEnabled":    false,
@@ -162,11 +180,12 @@ func buildKeycloakPayload(input models.KeycloakClientInput) map[string]any {
 		"serviceAccountsEnabled":       false,
 		"authorizationServicesEnabled": false,
 		"protocol":                     "openid-connect",
+		"description":                  keycloakClientDescription,
 	}
 
 	attributes := make(map[string]string)
-	if email := strings.TrimSpace(input.Email); email != "" {
-		attributes["email"] = email
+	if trimmed := strings.TrimSpace(email); trimmed != "" {
+		attributes["email"] = trimmed
 	}
 	if len(attributes) > 0 {
 		payload["attributes"] = attributes

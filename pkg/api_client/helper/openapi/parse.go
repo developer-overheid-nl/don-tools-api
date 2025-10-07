@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// spectralResult vertegenwoordigt één entry uit `spectral lint -f json`
-type spectralResult struct {
+// validatorResult vertegenwoordigt één entry uit een lint JSON bestand
+type validatorResult struct {
 	Code     string        `json:"code"`
 	Message  string        `json:"message"`
 	Path     []interface{} `json:"path"`
@@ -23,7 +23,7 @@ type spectralResult struct {
 }
 
 func sevToString(sev int) string {
-	switch sev { // spectral: 0=error,1=warn,2=info,3=hint
+	switch sev { // lint severities: 0=error,1=warn,2=info,3=hint
 	case 0:
 		return "error"
 	case 1:
@@ -37,14 +37,14 @@ func sevToString(sev int) string {
 	}
 }
 
-// ParseOutput zet spectral JSON output om naar LintMessages
+// ParseOutput zet validator JSON output om naar LintMessages
 func ParseOutput(output string, now time.Time) []models.LintMessage {
 	trimmed := strings.TrimSpace(output)
 	if trimmed == "" {
 		return nil
 	}
 
-	var results []spectralResult
+	var results []validatorResult
 	if err := json.Unmarshal([]byte(trimmed), &results); err != nil {
 		// Niet-JSON output: maak één melding met de ruwe tekst
 		id := uuid.New().String()

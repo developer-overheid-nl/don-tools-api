@@ -6,7 +6,7 @@ Tools API voor developer.overheid.nl. Biedt conversies (OpenAPI → Bruno/Postma
 
 - Vereisten (lokaal runnen zonder Docker):
   - Go 1.24+
-  - Node.js + npm met CLI tools: `@stoplight/spectral-cli`, `openapi-to-bruno`, `openapi-to-postmanv2`
+- Node.js + npm met CLI tools: `openapi-to-bruno`, `openapi-to-postmanv2`
     - Alternatief: gebruik de Dockerfile; daarin worden deze tools geïnstalleerd.
 
 1) Optioneel: zet env-variabelen in `.env` (zie Configuratie).

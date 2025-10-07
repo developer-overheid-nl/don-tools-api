@@ -3,7 +3,7 @@ FROM golang:latest
 # Node.js + npm for npx-based tools used by services
 RUN apt-get update && \
     apt-get install -y --no-install-recommends nodejs npm ca-certificates && \
-    npm install -g @stoplight/spectral-cli openapi-to-bruno openapi-to-postmanv2 && \
+    npm install -g openapi-to-bruno openapi-to-postmanv2 && \
     npm cache clean --force && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

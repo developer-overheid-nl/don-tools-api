@@ -13,16 +13,17 @@ import (
 )
 
 type ToolsController struct {
-	Bruno     *services.BrunoService
-	Postman   *services.PostmanService
-	Linter    *services.LinterService
-	Converter *services.OASVersionService
-	Arazzo    *services.ArazzoVizService
-	Keycloak  *services.KeycloakService
+	Bruno        *services.BrunoService
+	Postman      *services.PostmanService
+	Linter       *services.LinterService
+	Converter    *services.OASVersionService
+	Arazzo       *services.ArazzoVizService
+	Keycloak     *services.KeycloakService
+	Dereferencer *services.DereferenceService
 }
 
-func NewToolsController(bruno *services.BrunoService, postman *services.PostmanService, linter *services.LinterService, converter *services.OASVersionService, arazzo *services.ArazzoVizService, keycloak *services.KeycloakService) *ToolsController {
-	return &ToolsController{Bruno: bruno, Postman: postman, Linter: linter, Converter: converter, Arazzo: arazzo, Keycloak: keycloak}
+func NewToolsController(bruno *services.BrunoService, postman *services.PostmanService, linter *services.LinterService, converter *services.OASVersionService, arazzo *services.ArazzoVizService, keycloak *services.KeycloakService, dereferencer *services.DereferenceService) *ToolsController {
+	return &ToolsController{Bruno: bruno, Postman: postman, Linter: linter, Converter: converter, Arazzo: arazzo, Keycloak: keycloak, Dereferencer: dereferencer}
 }
 
 /* ------------------------- LINT ------------------------- */
@@ -151,6 +152,38 @@ func (tc *ToolsController) GenerateOAS(c *gin.Context, body *models.OasInput) er
 	return nil
 }
 
+/* ------------------------- DEREFERENCE ------------------------- */
+// POST /v1/oas/dereference
+func (tc *ToolsController) DereferenceOAS(c *gin.Context, body *models.OasInput) error {
+	content := openapi.GetOASFromBody(body)
+	if len(content) == 0 {
+		return problem.NewBadRequest("", "Body ontbreekt of ongeldig: gebruik oasUrl of oasBody")
+	}
+
+	base := strings.TrimSpace(body.OasUrl)
+
+	jsonBytes, baseName, err := tc.Dereferencer.Dereference(c.Request.Context(), content, base)
+	if err != nil {
+		return problem.NewInternalServerError(err.Error())
+	}
+
+	preferred := services.GuessExt(content)
+	output, filename, err := services.DereferenceToPreferedFormat(jsonBytes, preferred, baseName)
+	if err != nil {
+		return problem.NewInternalServerError(err.Error())
+	}
+
+	contentType := "application/json"
+	if strings.HasSuffix(strings.ToLower(filename), ".yaml") || strings.HasSuffix(strings.ToLower(filename), ".yml") {
+		contentType = "application/yaml"
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	c.Data(http.StatusOK, contentType, output)
+	return nil
+}
+
 /* ------------------------- ARAZZO VISUALIZER ------------------------- */
 
 // POST /v1/arazzo
@@ -194,9 +227,10 @@ func (tc *ToolsController) VisualizeArazzo(c *gin.Context, body *models.ArazzoIn
 }
 
 // POST /v1/keycloak/clients
+
 func (tc *ToolsController) CreateKeycloakClient(c *gin.Context, body *models.KeycloakClientInput) (*models.KeycloakClientResult, error) {
-	if body == nil || strings.TrimSpace(body.ClientName) == "" || strings.TrimSpace(body.Email) == "" {
-		return nil, problem.NewBadRequest("", "clientName en email zijn verplicht")
+	if body == nil || strings.TrimSpace(body.Email) == "" {
+		return nil, problem.NewBadRequest("", "email is verplicht")
 	}
 	if tc.Keycloak == nil {
 		return nil, problem.NewInternalServerError("Keycloak service niet geconfigureerd")
