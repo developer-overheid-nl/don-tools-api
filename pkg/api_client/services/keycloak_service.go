@@ -121,13 +121,6 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (s *KeycloakService) fetchToken(ctx context.Context) (string, error) {
 	if s.tokenURL == "" || s.clientID == "" || s.clientSecret == "" {
 		return "", ErrKeycloakConfig
