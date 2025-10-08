@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -33,6 +34,13 @@ func (tc *ToolsController) LintOAS(c *gin.Context, body *models.OasInput) (*mode
 	content := openapi.GetOASFromBody(body)
 	if len(content) == 0 {
 		return nil, problem.NewBadRequest("", "Body ontbreekt of ongeldig: gebruik oasUrl of oasBody")
+	}
+	version, err := openapi.DetectOASVersion(content)
+	if err != nil {
+		return nil, problem.NewBadRequest("", err.Error())
+	}
+	if !strings.HasPrefix(version, "3.0.") && version != "3.0" {
+		return nil, problem.NewBadRequest("", fmt.Sprintf("OpenAPI versie %s wordt niet ondersteund. Gebruik een 3.0.x specificatie.", version))
 	}
 	res, lintErr := tc.Linter.LintBytes(c.Request.Context(), content)
 	if lintErr != nil {

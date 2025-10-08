@@ -11,6 +11,7 @@ import (
 
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
 	"github.com/google/uuid"
+	"github.com/invopop/yaml"
 )
 
 // validatorResult vertegenwoordigt één entry uit een lint JSON bestand
@@ -128,6 +129,35 @@ func GetOASFromBody(body *models.OasInput) []byte {
 		return []byte(s)
 	}
 	return nil
+}
+
+// DetectOASVersion probeert de openapi versie uit de specificatie te lezen.
+func DetectOASVersion(oas []byte) (string, error) {
+	trimmed := strings.TrimSpace(string(oas))
+	if trimmed == "" {
+		return "", fmt.Errorf("Body ontbreekt of ongeldig: gebruik oasUrl of oasBody")
+	}
+
+	data := []byte(trimmed)
+	if !json.Valid(data) {
+		jsonBytes, err := yaml.YAMLToJSON(data)
+		if err != nil {
+			return "", fmt.Errorf("OpenAPI document kon niet worden geconverteerd: %w", err)
+		}
+		data = jsonBytes
+	}
+
+	var spec map[string]any
+	if err := json.Unmarshal(data, &spec); err != nil {
+		return "", fmt.Errorf("OpenAPI document kon niet worden gelezen: %w", err)
+	}
+
+	version := strings.TrimSpace(fmt.Sprint(spec["openapi"]))
+	if version == "" {
+		return "", fmt.Errorf("OpenAPI document bevat geen openapi versieveld")
+	}
+
+	return version, nil
 }
 
 // FetchURL haalt de inhoud op van een URL met een korte timeout
