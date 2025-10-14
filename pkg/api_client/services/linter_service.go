@@ -3,67 +3,148 @@ package services
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"math"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	vacuumModel "github.com/daveshanley/vacuum/model"
-	"github.com/daveshanley/vacuum/motor"
-	"github.com/daveshanley/vacuum/rulesets"
 	openapiParser "github.com/developer-overheid-nl/don-tools-api/pkg/api_client/helper/openapi"
 	"github.com/developer-overheid-nl/don-tools-api/pkg/api_client/models"
 	"github.com/google/uuid"
-	"github.com/invopop/yaml"
 )
 
-// LinterService lint OpenAPI documenten via Vacuum
+const spectralRulesetEnv = "SPECTRAL_RULESET_PATH"
+
+// LinterService wrapt het aanroepen van Spectral
 type LinterService struct {
-	vacuumOnce    sync.Once
-	vacuumRuleSet *rulesets.RuleSet
-	vacuumErr     error
+	// cachet het rulesetbestand zodat spectral niet bij elke request over het netwerk hoeft
+	rulesetOnce sync.Once
+	rulesetPath string
+	rulesetErr  error
 }
 
 func NewLinterService() *LinterService { return &LinterService{} }
 
-//go:embed ruleset/adr-vacuum.yaml
-var embeddedVacuumRuleset []byte
+//go:embed ruleset/adr-ruleset.yaml
+var embeddedRuleset []byte
 
-func (s *LinterService) loadVacuumRuleSet() (*rulesets.RuleSet, error) {
-	s.vacuumOnce.Do(func() {
-		if len(embeddedVacuumRuleset) == 0 {
-			s.vacuumErr = fmt.Errorf("ingebedde vacuum ruleset ontbreekt")
-			return
-		}
-		rsModel := rulesets.BuildDefaultRuleSets()
-		userRS, err := rulesets.CreateRuleSetFromData(embeddedVacuumRuleset)
-		if err != nil {
-			s.vacuumErr = fmt.Errorf("kon vacuum ruleset niet parsen: %w", err)
-			return
-		}
-		s.vacuumRuleSet = rsModel.GenerateRuleSetFromSuppliedRuleSet(userRS)
-	})
-	if s.vacuumErr != nil {
-		return nil, s.vacuumErr
+func (s *LinterService) resolveRulesetPath() (string, error) {
+	if env := strings.TrimSpace(os.Getenv(spectralRulesetEnv)); env != "" {
+		return env, nil
 	}
-	return s.vacuumRuleSet, nil
+
+	s.rulesetOnce.Do(func() {
+		if len(embeddedRuleset) == 0 {
+			s.rulesetErr = fmt.Errorf("ingebedde spectral ruleset ontbreekt")
+			return
+		}
+		f, err := os.CreateTemp("", "spectral-ruleset-*.yaml")
+		if err != nil {
+			s.rulesetErr = fmt.Errorf("kon tijdelijk ruleset-bestand niet maken: %w", err)
+			return
+		}
+		if _, err := f.Write(embeddedRuleset); err != nil {
+			_ = f.Close()
+			s.rulesetErr = fmt.Errorf("kon ruleset niet schrijven: %w", err)
+			return
+		}
+		if err := f.Close(); err != nil {
+			s.rulesetErr = fmt.Errorf("kon ruleset-bestand niet sluiten: %w", err)
+			return
+		}
+		s.rulesetPath = f.Name()
+	})
+
+	if s.rulesetErr != nil {
+		return "", s.rulesetErr
+	}
+	if s.rulesetPath == "" {
+		return "", fmt.Errorf("ruleset-pad niet beschikbaar")
+	}
+	return s.rulesetPath, nil
 }
 
-// LintBytes lint een OpenAPI document via vacuum en de ingesloten ADR ruleset
+// LintBytes lint een OpenAPI document uit bytes door via een tijdelijk bestand te linten
 func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.LintResult, error) {
-	start := time.Now()
-	log.Printf("[linter] vacuum lint start size=%d", len(oas))
-	defer func() {
-		log.Printf("[linter] vacuum lint done duration=%s", time.Since(start))
-	}()
+	if _, err := exec.LookPath("spectral"); err != nil {
+		now := time.Now()
+		res := &models.LintResult{
+			ID:        uuid.New().String(),
+			Successes: false,
+			Failures:  1,
+			Score:     0,
+			Messages: []models.LintMessage{{
+				ID:        uuid.New().String(),
+				Code:      "lint-exec",
+				Severity:  "error",
+				CreatedAt: now,
+				Infos: []models.LintMessageInfo{{
+					ID:      uuid.New().String(),
+					Message: fmt.Sprintf("spectral CLI niet gevonden: %v", err),
+					Path:    "body",
+				}},
+			}},
+			CreatedAt: now,
+		}
+		return res, fmt.Errorf("spectral CLI niet gevonden: %w", err)
+	}
 
-	ruleSet, err := s.loadVacuumRuleSet()
+	dir, err := os.MkdirTemp("", "oaslint-*")
+	if err != nil {
+		now := time.Now()
+		res := &models.LintResult{
+			ID:        uuid.New().String(),
+			Successes: false,
+			Failures:  1,
+			Score:     0,
+			Messages: []models.LintMessage{{
+				ID:        uuid.New().String(),
+				Code:      "lint-exec",
+				Severity:  "error",
+				CreatedAt: now,
+				Infos: []models.LintMessageInfo{{
+					ID:      uuid.New().String(),
+					Message: fmt.Sprintf("kon tijdelijke map niet maken: %v", err),
+					Path:    "body",
+				}},
+			}},
+			CreatedAt: now,
+		}
+		return res, err
+	}
+	defer os.RemoveAll(dir)
+
+	ext := GuessExt(oas)
+	f := filepath.Join(dir, "openapi"+ext)
+	if err := os.WriteFile(f, oas, 0o600); err != nil {
+		now := time.Now()
+		res := &models.LintResult{
+			ID:        uuid.New().String(),
+			Successes: false,
+			Failures:  1,
+			Score:     0,
+			Messages: []models.LintMessage{{
+				ID:        uuid.New().String(),
+				Code:      "lint-exec",
+				Severity:  "error",
+				CreatedAt: now,
+				Infos: []models.LintMessageInfo{{
+					ID:      uuid.New().String(),
+					Message: fmt.Sprintf("kon tijdelijk bestand niet schrijven: %v", err),
+					Path:    f,
+				}},
+			}},
+			CreatedAt: now,
+		}
+		return res, err
+	}
+
+	rulesetPath, err := s.resolveRulesetPath()
 	if err != nil {
 		now := time.Now()
 		res := &models.LintResult{
@@ -87,50 +168,21 @@ func (s *LinterService) LintBytes(ctx context.Context, oas []byte) (*models.Lint
 		return res, err
 	}
 
-	deadlineTimeout := 5 * time.Second
-	if deadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 {
-			deadlineTimeout = remaining
-		}
+	cmd := exec.CommandContext(
+		ctx,
+		"spectral", "lint",
+		"-F", "error",
+		"-D",
+		"-r", rulesetPath,
+		"-f", "json",
+		f,
+	)
+	output, err := cmd.CombinedOutput()
+	if _, ok := err.(*exec.ExitError); ok && len(output) > 0 {
+		err = nil
 	}
 
-	execution := &motor.RuleSetExecution{
-		RuleSet:           ruleSet,
-		Spec:              oas,
-		SpecFileName:      "body",
-		AllowLookup:       true,
-		Timeout:           deadlineTimeout,
-		SkipDocumentCheck: false,
-	}
-
-	result := motor.ApplyRulesToRuleSet(execution)
-	if len(result.Errors) > 0 {
-		messages := make([]string, 0, len(result.Errors))
-		for _, e := range result.Errors {
-			if e != nil {
-				messages = append(messages, e.Error())
-			}
-		}
-		errMsg := strings.Join(messages, "; ")
-		if errMsg == "" {
-			errMsg = "vacuum lint failed"
-		}
-		err := errors.New(errMsg)
-		return s.buildResult("", err, "body"), err
-	}
-
-	report := vacuumModel.NewRuleResultSet(result.Results).GenerateSpectralReport("body")
-	jsonReport, err := json.Marshal(report)
-	if err != nil {
-		wrapErr := fmt.Errorf("vacuum report marshal: %w", err)
-		return s.buildResult("", wrapErr, "body"), wrapErr
-	}
-
-	res := s.buildResult(string(jsonReport), nil, "body")
-	if err := enrichWithManualChecks(res, oas); err != nil {
-		log.Printf("[linter] kon aanvullende checks niet uitvoeren: %v", err)
-	}
-	return res, nil
+	return s.buildResult(string(output), err, "body"), err
 }
 
 // measuredRules zijn de regels die meetellen voor de ADR score
@@ -144,168 +196,6 @@ var measuredRules = map[string]struct{}{
 	"info-contact-fields-exist":    {},
 	"http-methods":                 {},
 	"semver":                       {},
-}
-
-var versionHeaderNames = []string{"API-Version", "Api-Version", "Api-version", "api-version", "API-version"}
-
-func enrichWithManualChecks(res *models.LintResult, oas []byte) error {
-	if res == nil {
-		return nil
-	}
-	root, err := parseSpecToMap(oas)
-	if err != nil {
-		return err
-	}
-	paths, _ := root["paths"].(map[string]any)
-	if len(paths) == 0 {
-		return nil
-	}
-	existing := make(map[string]struct{}, len(res.Messages))
-	for _, msg := range res.Messages {
-		path := ""
-		if len(msg.Infos) > 0 {
-			path = msg.Infos[0].Path
-		}
-		existing[msg.Code+":"+path] = struct{}{}
-	}
-	var added bool
-	for pathKey, pathVal := range paths {
-		operations, ok := pathVal.(map[string]any)
-		if !ok {
-			continue
-		}
-		for methodKey, opVal := range operations {
-			methodLower := strings.ToLower(methodKey)
-			switch methodLower {
-			case "get", "post", "put", "delete", "patch", "head", "options", "trace":
-				operation, ok := opVal.(map[string]any)
-				if !ok {
-					continue
-				}
-				responses, ok := operation["responses"].(map[string]any)
-				if !ok {
-					continue
-				}
-				for status, respVal := range responses {
-					if !isSuccessStatus(status) {
-						continue
-					}
-					response, ok := normalizeAny(respVal).(map[string]any)
-					if !ok {
-						continue
-					}
-					headers, ok := response["headers"].(map[string]any)
-					responsePath := fmt.Sprintf("paths.%s.%s.responses.%s", pathKey, methodLower, status)
-					if !ok || headers == nil {
-						key := "missing-header:" + responsePath
-						if _, seen := existing[key]; !seen {
-							res.Messages = append(res.Messages, newLintMessage("missing-header", responsePath, "/core/version-header: Return the full version number in a response header: https://logius-standaarden.github.io/API-Design-Rules/#/core/version-header"))
-							existing[key] = struct{}{}
-							added = true
-						}
-						continue
-					}
-					if !hasVersionHeader(headers) {
-						key := "missing-version-header:" + responsePath
-						if _, seen := existing[key]; !seen {
-							res.Messages = append(res.Messages, newLintMessage("missing-version-header", responsePath, "Return the full version number in a response header"))
-							existing[key] = struct{}{}
-							added = true
-						}
-					}
-				}
-			}
-		}
-	}
-	if added {
-		errCount := 0
-		for _, msg := range res.Messages {
-			if strings.ToLower(msg.Severity) == "error" {
-				errCount++
-			}
-		}
-		res.Failures = errCount
-		res.Score, _ = ComputeAdrScore(res.Messages)
-		res.Successes = res.Score == 100
-	}
-	return nil
-}
-
-func newLintMessage(code, path, message string) models.LintMessage {
-	msg := models.LintMessage{
-		ID:        uuid.New().String(),
-		Code:      code,
-		Severity:  "error",
-		CreatedAt: time.Now(),
-	}
-	info := models.LintMessageInfo{
-		ID:      uuid.New().String(),
-		Message: message,
-		Path:    path,
-	}
-	msg.Infos = []models.LintMessageInfo{info}
-	return msg
-}
-
-func hasVersionHeader(headers map[string]any) bool {
-	for _, name := range versionHeaderNames {
-		if _, ok := headers[name]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func isSuccessStatus(code string) bool {
-	if len(code) == 0 {
-		return false
-	}
-	if code == "default" {
-		return false
-	}
-	status, err := strconv.Atoi(code)
-	if err != nil {
-		return false
-	}
-	return status >= 200 && status < 400
-}
-
-func parseSpecToMap(oas []byte) (map[string]any, error) {
-	var doc any
-	if err := json.Unmarshal(oas, &doc); err != nil {
-		if err := yaml.Unmarshal(oas, &doc); err != nil {
-			return nil, err
-		}
-	}
-	normalized := normalizeAny(doc)
-	root, ok := normalized.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("root van OpenAPI document is geen object")
-	}
-	return root, nil
-}
-
-func normalizeAny(value any) any {
-	switch t := value.(type) {
-	case map[any]any:
-		m := make(map[string]any, len(t))
-		for k, v := range t {
-			m[fmt.Sprint(k)] = normalizeAny(v)
-		}
-		return m
-	case map[string]any:
-		for k, v := range t {
-			t[k] = normalizeAny(v)
-		}
-		return t
-	case []any:
-		for i, v := range t {
-			t[i] = normalizeAny(v)
-		}
-		return t
-	default:
-		return value
-	}
 }
 
 // ComputeAdrScore berekent de ADR score en retourneert ook de gefaalde regels
@@ -332,7 +222,7 @@ func ComputeAdrScore(msgs []models.LintMessage) (score int, failed []string) {
 	return score, failed
 }
 
-// buildResult zet validator output + fouten om naar een LintResult incl. score
+// buildResult zet spectral output + fouten om naar een LintResult incl. score
 func (s *LinterService) buildResult(output string, lintErr error, sourcePath string) *models.LintResult {
 	now := time.Now()
 	var msgs []models.LintMessage
@@ -355,17 +245,14 @@ func (s *LinterService) buildResult(output string, lintErr error, sourcePath str
 		msgs = openapiParser.ParseOutput(trimmed, now)
 	}
 
-	filtered := msgs[:0]
+	var errCount, warnCount int
 	for _, m := range msgs {
-		if strings.ToLower(m.Severity) == "error" {
-			filtered = append(filtered, m)
+		switch strings.ToLower(m.Severity) {
+		case "error":
+			errCount++
+		case "warning":
+			warnCount++
 		}
-	}
-	msgs = filtered
-
-	var errCount int
-	for range msgs {
-		errCount++
 	}
 	score, _ := ComputeAdrScore(msgs)
 
