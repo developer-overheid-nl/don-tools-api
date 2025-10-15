@@ -122,44 +122,7 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 }
 
 func (s *KeycloakService) fetchToken(ctx context.Context) (string, error) {
-	if s.tokenURL == "" || s.clientID == "" || s.clientSecret == "" {
-		return "", ErrKeycloakConfig
-	}
-
-	form := url.Values{}
-	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", s.clientID)
-	form.Set("client_secret", s.clientSecret)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("token request %s -> %d: %s", s.tokenURL, resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var tok struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		ExpiresIn   int    `json:"expires_in"`
-	}
-	if err := json.Unmarshal(body, &tok); err != nil {
-		return "", fmt.Errorf("token parse error: %v; body=%s", err, string(body))
-	}
-	if tok.AccessToken == "" {
-		return "", errors.New("empty access_token in response")
-	}
-	return tok.AccessToken, nil
+	return fetchClientCredentialsToken(ctx, s.httpClient, s.tokenURL, s.clientID, s.clientSecret, ErrKeycloakConfig)
 }
 
 func buildKeycloakPayload(clientID, email string) map[string]any {

@@ -23,6 +23,8 @@ const (
 	defaultOASPath  = "openapi.json"
 )
 
+var errHarvesterAuthConfig = errors.New("auth not configured (AUTH_TOKEN_URL, AUTH_CLIENT_ID, AUTH_CLIENT_SECRET)")
+
 // HarvesterService haalt index.json op, leidt OAS-URLs af en post naar een register endpoint
 type HarvesterService struct {
 	httpClient       *http.Client
@@ -44,9 +46,14 @@ func NewHarvesterService(registerEndpoint string) *HarvesterService {
 // PDOK_REGISTER_ENDPOINT bepaalt het POST endpoint per omgeving.
 func NewHarvesterServiceFromEnv() *HarvesterService {
 	reg := strings.TrimSpace(os.Getenv("PDOK_REGISTER_ENDPOINT"))
+	base := strings.TrimSpace(os.Getenv("KEYCLOAK_BASE_URL"))
+	realm := strings.TrimSpace(os.Getenv("KEYCLOAK_REALM"))
+	var tokenURL string
+	if base != "" {
+		tokenURL = fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token", base, url.PathEscape(realm))
+	}
 	s := NewHarvesterService(reg)
-	// Auth config
-	s.tokenURL = strings.TrimSpace(os.Getenv("AUTH_TOKEN_URL"))
+	s.tokenURL = tokenURL
 	s.clientID = strings.TrimSpace(os.Getenv("AUTH_CLIENT_ID"))
 	s.clientSecret = strings.TrimSpace(os.Getenv("AUTH_CLIENT_SECRET"))
 	return s
@@ -163,41 +170,7 @@ func (s *HarvesterService) postAPI(ctx context.Context, payload models.ApiPost, 
 
 // getAccessToken retrieves an OAuth2 access token via client_credentials
 func (s *HarvesterService) getAccessToken(ctx context.Context) (string, error) {
-	if s.tokenURL == "" || s.clientID == "" || s.clientSecret == "" {
-		return "", errors.New("auth not configured (AUTH_TOKEN_URL, AUTH_CLIENT_ID, AUTH_CLIENT_SECRET)")
-	}
-	form := url.Values{}
-	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", s.clientID)
-	form.Set("client_secret", s.clientSecret)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return "", fmt.Errorf("token endpoint status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
-	}
-	var tok struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		ExpiresIn   int    `json:"expires_in"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(tok.AccessToken) == "" {
-		return "", errors.New("empty access_token in response")
-	}
-	return tok.AccessToken, nil
+	return fetchClientCredentialsToken(ctx, s.httpClient, s.tokenURL, s.clientID, s.clientSecret, errHarvesterAuthConfig)
 }
 
 // deriveOASURLWith bepaalt de OAS-URL op basis van href, uiSuffix en oasPath
