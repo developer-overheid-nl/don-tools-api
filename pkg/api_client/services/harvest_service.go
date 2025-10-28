@@ -23,7 +23,7 @@ const (
 	defaultOASPath  = "openapi.json"
 )
 
-var errHarvesterAuthConfig = errors.New("auth not configured (AUTH_TOKEN_URL, AUTH_CLIENT_ID, AUTH_CLIENT_SECRET)")
+var errHarvesterAuthConfig = errors.New("auth not configured AUTH_CLIENT_ID, AUTH_CLIENT_SECRET)")
 
 // HarvesterService haalt index.json op, leidt OAS-URLs af en post naar een register endpoint
 type HarvesterService struct {

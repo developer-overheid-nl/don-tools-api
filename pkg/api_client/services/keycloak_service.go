@@ -24,6 +24,8 @@ var (
 	ErrKeycloakConflict = errors.New("keycloak client bestaat al")
 	// ErrKeycloakUnauthorized indicates authorization failures.
 	ErrKeycloakUnauthorized = errors.New("autorisatie voor keycloak mislukt")
+	// ErrKeycloakClientIDMissing indicates an empty clientId was supplied.
+	ErrKeycloakClientIDMissing = errors.New("clientId ontbreekt of is ongeldig")
 )
 
 const keycloakClientDescription = "Dit is een read only api key, meer info: https://developer.overheid.nl/"
@@ -81,7 +83,7 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 		return nil, err
 	}
 
-	clientID := uuid.New().String()
+	clientID := uuid.NewString()
 	payload := buildKeycloakPayload(clientID, input.Email)
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -105,10 +107,22 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 	respBody := strings.TrimSpace(string(data))
 
 	switch resp.StatusCode {
-	case http.StatusCreated, http.StatusNoContent:
+	case http.StatusCreated:
+		location := strings.TrimSpace(resp.Header.Get("Location"))
+		if location == "" {
+			return nil, fmt.Errorf("keycloak response %d: location header ontbreekt", resp.StatusCode)
+		}
+
+		newClientID, err := extractClientIDFromKeycloakLocation(location)
+		if err != nil {
+			return nil, err
+		}
+
 		return &models.KeycloakClientResult{
-			APIKey: clientID,
+			APIKey: newClientID,
 		}, nil
+	case http.StatusNoContent:
+		return nil, ErrKeycloakClientIDMissing
 	case http.StatusConflict:
 		return nil, ErrKeycloakConflict
 	case http.StatusUnauthorized, http.StatusForbidden:
@@ -123,6 +137,31 @@ func (s *KeycloakService) CreateClient(ctx context.Context, input models.Keycloa
 
 func (s *KeycloakService) fetchToken(ctx context.Context) (string, error) {
 	return fetchClientCredentialsToken(ctx, s.httpClient, s.tokenURL, s.clientID, s.clientSecret, ErrKeycloakConfig)
+}
+
+func extractClientIDFromKeycloakLocation(location string) (string, error) {
+	trimmed := strings.TrimSpace(location)
+	if trimmed == "" {
+		return "", errors.New("keycloak location header ontbreekt")
+	}
+
+	if u, err := url.Parse(trimmed); err == nil {
+		path := strings.Trim(u.Path, "/")
+		if path != "" {
+			parts := strings.Split(path, "/")
+			if candidate := strings.TrimSpace(parts[len(parts)-1]); candidate != "" {
+				return candidate, nil
+			}
+		}
+	}
+
+	if idx := strings.LastIndex(trimmed, "/"); idx >= 0 && idx < len(trimmed)-1 {
+		if candidate := strings.TrimSpace(trimmed[idx+1:]); candidate != "" {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("kan clientId niet bepalen uit keycloak location header: %q", trimmed)
 }
 
 func buildKeycloakPayload(clientID, email string) map[string]any {

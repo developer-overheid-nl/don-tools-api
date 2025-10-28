@@ -237,7 +237,10 @@ func (tc *ToolsController) VisualizeArazzo(c *gin.Context, body *models.ArazzoIn
 // POST /v1/keycloak/clients
 
 func (tc *ToolsController) CreateKeycloakClient(c *gin.Context, body *models.KeycloakClientInput) (*models.KeycloakClientResult, error) {
-	if body == nil || strings.TrimSpace(body.Email) == "" {
+	if body == nil {
+		return nil, problem.NewBadRequest("", "body ontbreekt")
+	}
+	if strings.TrimSpace(body.Email) == "" {
 		return nil, problem.NewBadRequest("", "email is verplicht")
 	}
 	if tc.Keycloak == nil {
@@ -252,6 +255,8 @@ func (tc *ToolsController) CreateKeycloakClient(c *gin.Context, body *models.Key
 			return nil, problem.NewConflict("Keycloak client bestaat al")
 		case errors.Is(err, services.ErrKeycloakUnauthorized):
 			return nil, problem.NewForbidden("", "Geen toegang tot Keycloak admin API")
+		case errors.Is(err, services.ErrKeycloakClientIDMissing):
+			return nil, problem.NewBadRequest("", "clientId ontbreekt of is ongeldig")
 		default:
 			return nil, problem.NewInternalServerError(err.Error())
 		}
