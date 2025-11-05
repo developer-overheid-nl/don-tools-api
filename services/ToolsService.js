@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 const Service = require('./Service');
+const OasValidatorService = require('./OasValidatorService');
 
 /**
  * Visualiseer Arazzo (POST)
@@ -200,7 +201,8 @@ const validatorOpenAPIPost = async (params) => {
       }
       return mockResult.value;
     }
-    return Service.successResponse(params);
+    const result = await OasValidatorService.validate(params);
+    return Service.successResponse(result);
   } catch (e) {
     throw Service.rejectResponse(
       e.message || 'Invalid input',
