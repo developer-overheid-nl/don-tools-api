@@ -94,7 +94,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateBrunoCollectionInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           description: OK
@@ -124,7 +124,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ConvertOASInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           description: OK
@@ -154,7 +154,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DereferenceOASInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           description: OK
@@ -184,7 +184,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenerateOASInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           description: OK
@@ -214,7 +214,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ValidatorOpenAPIPostInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           content:
@@ -248,7 +248,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreatePostmanCollectionInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           description: OK
@@ -295,47 +295,7 @@ components:
         arazzoUrl:
           type: string
       type: object
-    ConvertOASInput:
-      example:
-        oasUrl: oasUrl
-        oasBody: oasBody
-      properties:
-        oasBody:
-          type: string
-        oasUrl:
-          type: string
-      type: object
-    CreateBrunoCollectionInput:
-      example:
-        oasUrl: oasUrl
-        oasBody: oasBody
-      properties:
-        oasBody:
-          type: string
-        oasUrl:
-          type: string
-      type: object
-    CreatePostmanCollectionInput:
-      example:
-        oasUrl: oasUrl
-        oasBody: oasBody
-      properties:
-        oasBody:
-          type: string
-        oasUrl:
-          type: string
-      type: object
-    DereferenceOASInput:
-      example:
-        oasUrl: oasUrl
-        oasBody: oasBody
-      properties:
-        oasBody:
-          type: string
-        oasUrl:
-          type: string
-      type: object
-    GenerateOASInput:
+    OASInput:
       example:
         oasUrl: oasUrl
         oasBody: oasBody
@@ -469,16 +429,6 @@ components:
         email: email
       properties:
         email:
-          type: string
-      type: object
-    ValidatorOpenAPIPostInput:
-      example:
-        oasUrl: oasUrl
-        oasBody: oasBody
-      properties:
-        oasBody:
-          type: string
-        oasUrl:
           type: string
       type: object
   securitySchemes:
