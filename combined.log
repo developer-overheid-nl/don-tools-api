@@ -1,0 +1,5 @@
+{"level":"error","message":"Express Server failure","service":"user-service","timestamp":"2025-11-05T09:16:22.949Z"}
+{"level":"error","service":"user-service","timestamp":"2025-11-05T09:16:22.951Z"}
+{"level":"info","message":"Express server running","service":"user-service","timestamp":"2025-11-05T09:18:52.367Z"}
+{"level":"info","message":"Incoming request for POST /v1/auth/clients","service":"user-service","timestamp":"2025-11-05T09:19:07.550Z"}
+{"level":"info","message":"Incoming request for POST /v1/auth/clients","service":"user-service","timestamp":"2025-11-05T09:19:14.263Z"}

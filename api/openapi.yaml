@@ -1,0 +1,495 @@
+openapi: 3.0.1
+info:
+  contact:
+    email: developer.overheid@geonovum.nl
+    name: Team developer.overheid.nl
+    url: https://github.com/developer-overheid-nl/don-tools-api/issues
+  description: API van het Tools (apis.developer.overheid.nl)
+  title: Tools API v1
+  version: 1.0.0
+servers:
+- description: Production
+  url: https://api.developer.overheid.nl/tools/v1
+- description: Test
+  url: https://api-register.don.apps.digilab.network/tools/v1
+tags:
+- description: Tools API V1 routes
+  name: API v1
+- description: Conversies en hulpmiddelen
+  name: Tools
+paths:
+  /v1/arazzo/parse:
+    post:
+      description: "Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid.\
+        \ Body: { arazzoUrl|arazzoBody }"
+      operationId: arazzo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArazzoInput"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelsArazzoVisualization"
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Visualiseer Arazzo (POST)
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/auth/clients:
+    post:
+      description: Maak een client aan via de admin API. Body bevat Email.
+      operationId: untrustClient
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UntrustClientInput"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelsKeycloakClientResult"
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Maak client (POST)
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/bruno/convert:
+    post:
+      description: "Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody\
+        \ } (stringified JSON of YAML)."
+      operationId: CreateBrunoCollection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBrunoCollectionInput"
+      responses:
+        "200":
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Maak Bruno-collectie (POST)
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/oas/convert:
+    post:
+      description: "Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of {\
+        \ oasBody } (stringified JSON of YAML)."
+      operationId: ConvertOAS
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertOASInput"
+      responses:
+        "200":
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Converteer OpenAPI 3.0/3.1
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/oas/dereference:
+    post:
+      description: "Haalt externe $ref verwijzingen op en levert één compleet OpenAPI\
+        \ document terug. Body: { oasUrl } of { oasBody }."
+      operationId: DereferenceOAS
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DereferenceOASInput"
+      responses:
+        "200":
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Dereference OpenAPI
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/oas/generate:
+    post:
+      description: "Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of {\
+        \ oasBody } (stringified JSON of YAML)."
+      operationId: GenerateOAS
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateOASInput"
+      responses:
+        "200":
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Generate OpenAPI
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/oas/validate:
+    post:
+      description: "Valideert een OpenAPI specificatie met de DON ADR ruleset. Body:\
+        \ { oasUrl } of { oasBody } (stringified JSON of YAML)."
+      operationId: validatorOpenAPIPost
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidatorOpenAPIPostInput"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelsLintResult"
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Validate OpenAPI (POST)
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/postman/convert:
+    post:
+      description: "Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl\
+        \ } of { oasBody } (stringified JSON of YAML)."
+      operationId: CreatePostmanCollection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostmanCollectionInput"
+      responses:
+        "200":
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Maak Postman-collectie (POST)
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+components:
+  headers:
+    API-Version:
+      description: De API-versie van de response
+      explode: false
+      schema:
+        example: 1.0.0
+        type: string
+      style: simple
+  responses:
+    "404":
+      description: Resource does not exist
+      headers:
+        API-Version:
+          $ref: "#/headers/API-Version"
+  schemas:
+    ArazzoInput:
+      example:
+        arazzoBody: arazzoBody
+        arazzoUrl: arazzoUrl
+      properties:
+        arazzoBody:
+          type: string
+        arazzoUrl:
+          type: string
+      type: object
+    ConvertOASInput:
+      example:
+        oasUrl: oasUrl
+        oasBody: oasBody
+      properties:
+        oasBody:
+          type: string
+        oasUrl:
+          type: string
+      type: object
+    CreateBrunoCollectionInput:
+      example:
+        oasUrl: oasUrl
+        oasBody: oasBody
+      properties:
+        oasBody:
+          type: string
+        oasUrl:
+          type: string
+      type: object
+    CreatePostmanCollectionInput:
+      example:
+        oasUrl: oasUrl
+        oasBody: oasBody
+      properties:
+        oasBody:
+          type: string
+        oasUrl:
+          type: string
+      type: object
+    DereferenceOASInput:
+      example:
+        oasUrl: oasUrl
+        oasBody: oasBody
+      properties:
+        oasBody:
+          type: string
+        oasUrl:
+          type: string
+      type: object
+    GenerateOASInput:
+      example:
+        oasUrl: oasUrl
+        oasBody: oasBody
+      properties:
+        oasBody:
+          type: string
+        oasUrl:
+          type: string
+      type: object
+    ModelsArazzoVisualization:
+      example:
+        mermaid: mermaid
+        markdown: markdown
+      properties:
+        markdown:
+          type: string
+        mermaid:
+          type: string
+      type: object
+    ModelsKeycloakClientResult:
+      example:
+        apiKey: apiKey
+      properties:
+        apiKey:
+          type: string
+      type: object
+    ModelsLintMessage:
+      example:
+        severity: severity
+        createdAt: 2000-01-23T04:56:07.000+00:00
+        code: code
+        id: id
+        infos:
+        - path: path
+          lintMessageId: lintMessageId
+          id: id
+          message: message
+        - path: path
+          lintMessageId: lintMessageId
+          id: id
+          message: message
+      properties:
+        code:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          type: string
+        infos:
+          items:
+            $ref: "#/components/schemas/ModelsLintMessageInfo"
+          type: array
+        severity:
+          type: string
+      type: object
+    ModelsLintMessageInfo:
+      example:
+        path: path
+        lintMessageId: lintMessageId
+        id: id
+        message: message
+      properties:
+        id:
+          type: string
+        lintMessageId:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+      type: object
+    ModelsLintResult:
+      example:
+        createdAt: 2000-01-23T04:56:07.000+00:00
+        score: 6
+        failures: 0
+        successes: true
+        messages:
+        - severity: severity
+          createdAt: 2000-01-23T04:56:07.000+00:00
+          code: code
+          id: id
+          infos:
+          - path: path
+            lintMessageId: lintMessageId
+            id: id
+            message: message
+          - path: path
+            lintMessageId: lintMessageId
+            id: id
+            message: message
+        - severity: severity
+          createdAt: 2000-01-23T04:56:07.000+00:00
+          code: code
+          id: id
+          infos:
+          - path: path
+            lintMessageId: lintMessageId
+            id: id
+            message: message
+          - path: path
+            lintMessageId: lintMessageId
+            id: id
+            message: message
+        id: id
+        apiId: apiId
+      properties:
+        apiId:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        failures:
+          format: int32
+          type: integer
+        id:
+          type: string
+        messages:
+          items:
+            $ref: "#/components/schemas/ModelsLintMessage"
+          type: array
+        score:
+          format: int32
+          type: integer
+        successes:
+          type: boolean
+      type: object
+    UntrustClientInput:
+      example:
+        email: email
+      properties:
+        email:
+          type: string
+      type: object
+    ValidatorOpenAPIPostInput:
+      example:
+        oasUrl: oasUrl
+        oasBody: oasBody
+      properties:
+        oasBody:
+          type: string
+        oasUrl:
+          type: string
+      type: object
+  securitySchemes:
+    apiKey:
+      in: header
+      name: X-API-Key
+      type: apiKey
+    clientCredentials:
+      flows:
+        clientCredentials:
+          scopes:
+            tools:read: Toegang tot de tools endpoints
+          tokenUrl: https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token
+      type: oauth2
