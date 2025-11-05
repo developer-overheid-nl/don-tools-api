@@ -31,10 +31,10 @@ const arazzo = async (params) => {
  * Converteer OpenAPI 3.0/3.1
  * Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
  *
- * convertOASInput ConvertOASInput  (optional)
+ * oASInput OASInput  (optional)
  * no response value expected for this operation
  */
-// const convertOAS = async ({ convertOASInput }) => {
+// const convertOAS = async ({ oASInput }) => {
 const convertOAS = async (params) => {
   try {
     const mockResult = await Service.applyMock('ToolsService', 'convertOAS', params);
@@ -57,10 +57,10 @@ const convertOAS = async (params) => {
  * Maak Bruno-collectie (POST)
  * Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
  *
- * createBrunoCollectionInput CreateBrunoCollectionInput  (optional)
+ * oASInput OASInput  (optional)
  * no response value expected for this operation
  */
-// const createBrunoCollection = async ({ createBrunoCollectionInput }) => {
+// const createBrunoCollection = async ({ oASInput }) => {
 const createBrunoCollection = async (params) => {
   try {
     const mockResult = await Service.applyMock('ToolsService', 'createBrunoCollection', params);
@@ -83,10 +83,10 @@ const createBrunoCollection = async (params) => {
  * Maak Postman-collectie (POST)
  * Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
  *
- * createPostmanCollectionInput CreatePostmanCollectionInput  (optional)
+ * oASInput OASInput  (optional)
  * no response value expected for this operation
  */
-// const createPostmanCollection = async ({ createPostmanCollectionInput }) => {
+// const createPostmanCollection = async ({ oASInput }) => {
 const createPostmanCollection = async (params) => {
   try {
     const mockResult = await Service.applyMock('ToolsService', 'createPostmanCollection', params);
@@ -109,10 +109,10 @@ const createPostmanCollection = async (params) => {
  * Dereference OpenAPI
  * Haalt externe $ref verwijzingen op en levert één compleet OpenAPI document terug. Body: { oasUrl } of { oasBody }.
  *
- * dereferenceOASInput DereferenceOASInput  (optional)
+ * oASInput OASInput  (optional)
  * no response value expected for this operation
  */
-// const dereferenceOAS = async ({ dereferenceOASInput }) => {
+// const dereferenceOAS = async ({ oASInput }) => {
 const dereferenceOAS = async (params) => {
   try {
     const mockResult = await Service.applyMock('ToolsService', 'dereferenceOAS', params);
@@ -135,10 +135,10 @@ const dereferenceOAS = async (params) => {
  * Generate OpenAPI
  * Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
  *
- * generateOASInput GenerateOASInput  (optional)
+ * oASInput OASInput  (optional)
  * no response value expected for this operation
  */
-// const generateOAS = async ({ generateOASInput }) => {
+// const generateOAS = async ({ oASInput }) => {
 const generateOAS = async (params) => {
   try {
     const mockResult = await Service.applyMock('ToolsService', 'generateOAS', params);
@@ -187,10 +187,10 @@ const untrustClient = async (params) => {
  * Validate OpenAPI (POST)
  * Valideert een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
  *
- * validatorOpenAPIPostInput ValidatorOpenAPIPostInput  (optional)
+ * oASInput OASInput  (optional)
  * returns ModelsLintResult
  */
-// const validatorOpenAPIPost = async ({ validatorOpenAPIPostInput }) => {
+// const validatorOpenAPIPost = async ({ oASInput }) => {
 const validatorOpenAPIPost = async (params) => {
   try {
     const mockResult = await Service.applyMock('ToolsService', 'validatorOpenAPIPost', params);
