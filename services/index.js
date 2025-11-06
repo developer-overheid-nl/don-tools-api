@@ -1,4 +1,4 @@
-const ToolsService = require('./ToolsService');
+const ToolsService = require("./ToolsService");
 
 module.exports = {
   ToolsService,

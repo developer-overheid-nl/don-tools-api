@@ -1,29 +1,29 @@
-const fs = require('node:fs/promises');
-const path = require('node:path');
-const { randomUUID } = require('node:crypto');
-const spectralFunctions = require('@stoplight/spectral-functions');
-const jsYaml = require('js-yaml');
-const { Spectral, Document, Ruleset } = require('@stoplight/spectral-core');
-const Parsers = require('@stoplight/spectral-parsers');
-const { fetch } = require('@stoplight/spectral-runtime');
-const { oas: oasRuleset } = require('@stoplight/spectral-rulesets');
-const Service = require('./Service');
-const logger = require('../logger');
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { randomUUID } = require("node:crypto");
+const spectralFunctions = require("@stoplight/spectral-functions");
+const jsYaml = require("js-yaml");
+const { Spectral, Document, Ruleset } = require("@stoplight/spectral-core");
+const Parsers = require("@stoplight/spectral-parsers");
+const { fetch } = require("@stoplight/spectral-runtime");
+const { oas: oasRuleset } = require("@stoplight/spectral-rulesets");
+const Service = require("./Service");
+const logger = require("../logger");
 
-const RULESET_PATH = path.join(__dirname, '..', 'rulesets', 'adr-ruleset.yaml');
+const RULESET_PATH = path.join(__dirname, "..", "rulesets", "adr-ruleset.yaml");
 
-const SEVERITY_LABELS = ['error', 'warning', 'info', 'hint'];
+const SEVERITY_LABELS = ["error", "warning", "info", "hint"];
 
 const MEASURED_RULE_GROUPS = {
-  openapi3: 'openapi3',
-  'openapi-root-exists': 'openapi-root-exists',
-  'missing-version-header': 'version-header',
-  'missing-header': 'version-header',
-  'include-major-version-in-uri': 'include-major-version-in-uri',
-  'paths-no-trailing-slash': 'paths-no-trailing-slash',
-  'info-contact-fields-exist': 'info-contact-fields-exist',
-  'http-methods': 'http-methods',
-  semver: 'semver',
+  openapi3: "openapi3",
+  "openapi-root-exists": "openapi-root-exists",
+  "missing-version-header": "version-header",
+  "missing-header": "version-header",
+  "include-major-version-in-uri": "include-major-version-in-uri",
+  "paths-no-trailing-slash": "paths-no-trailing-slash",
+  "info-contact-fields-exist": "info-contact-fields-exist",
+  "http-methods": "http-methods",
+  semver: "semver",
 };
 
 const MEASURED_GROUP_KEYS = Array.from(new Set(Object.values(MEASURED_RULE_GROUPS)));
@@ -41,8 +41,8 @@ const resolveRulesetExtendsEntry = (entry) => {
     }
     return [resolveRulesetExtendsEntry(target), severity];
   }
-  if (typeof entry === 'string') {
-    if (entry === 'spectral:oas') {
+  if (typeof entry === "string") {
+    if (entry === "spectral:oas") {
       return oasRuleset;
     }
     throw new Error(`Onbekende ruleset referentie '${entry}'`);
@@ -52,10 +52,10 @@ const resolveRulesetExtendsEntry = (entry) => {
 
 const loadRulesetDefinition = async () => {
   try {
-    const contents = await fs.readFile(RULESET_PATH, 'utf8');
+    const contents = await fs.readFile(RULESET_PATH, "utf8");
     const definition = jsYaml.load(contents);
-    if (!definition || typeof definition !== 'object') {
-      throw new Error('Ruleset-bestand is leeg of ongeldig.');
+    if (!definition || typeof definition !== "object") {
+      throw new Error("Ruleset-bestand is leeg of ongeldig.");
     }
     if (definition.extends) {
       const normalizedExtends = Array.isArray(definition.extends)
@@ -65,18 +65,18 @@ const loadRulesetDefinition = async () => {
     }
     if (definition.rules) {
       Object.values(definition.rules).forEach((rule) => {
-        if (!rule || typeof rule !== 'object') {
+        if (!rule || typeof rule !== "object") {
           return;
         }
         const thens = Array.isArray(rule.then) ? rule.then : [rule.then];
         thens.forEach((thenEntry) => {
-          if (!thenEntry || typeof thenEntry !== 'object') {
+          if (!thenEntry || typeof thenEntry !== "object") {
             return;
           }
-          if (typeof thenEntry.function === 'string') {
+          if (typeof thenEntry.function === "string") {
             const fnName = thenEntry.function;
             const fn = spectralFunctions[fnName];
-            if (typeof fn !== 'function') {
+            if (typeof fn !== "function") {
               throw new Error(`Onbekende Spectral-functie '${fnName}' in ruleset.`);
             }
             thenEntry.function = fn;
@@ -86,7 +86,7 @@ const loadRulesetDefinition = async () => {
     }
     return definition;
   } catch (error) {
-    throw new Error(error.message || 'Onbekende fout bij het laden van het ruleset-bestand.');
+    throw new Error(error.message || "Onbekende fout bij het laden van het ruleset-bestand.");
   }
 };
 
@@ -97,7 +97,7 @@ const loadSpectral = async () => {
         const spectral = new Spectral();
         const rulesetDefinition = await loadRulesetDefinition();
         const ruleset = new Ruleset(rulesetDefinition, {
-          severity: 'recommended',
+          severity: "recommended",
           source: RULESET_PATH,
         });
         spectral.setRuleset(ruleset);
@@ -105,10 +105,13 @@ const loadSpectral = async () => {
       } catch (error) {
         logger.error(`Unable to load Spectral ruleset from ${RULESET_PATH}: ${error.message}`);
         spectralInstancePromise = undefined;
-        throw Service.rejectResponse({
-          message: 'Kan het regels-bestand niet laden voor validatie.',
-          detail: error.message,
-        }, 500);
+        throw Service.rejectResponse(
+          {
+            message: "Kan het regels-bestand niet laden voor validatie.",
+            detail: error.message,
+          },
+          500,
+        );
       }
     })();
   }
@@ -123,34 +126,43 @@ const fetchRemoteSpecification = async (oasUrl) => {
     }
     return await response.text();
   } catch (error) {
-    throw Service.rejectResponse({
-      message: 'Het ophalen van de OpenAPI specificatie is mislukt.',
-      detail: error.message,
-    }, 400);
+    throw Service.rejectResponse(
+      {
+        message: "Het ophalen van de OpenAPI specificatie is mislukt.",
+        detail: error.message,
+      },
+      400,
+    );
   }
 };
 
 const resolveSpecificationInput = async (input) => {
-  if (!input || typeof input !== 'object') {
-    throw Service.rejectResponse({
-      message: 'Body ontbreekt of heeft een ongeldig formaat.',
-    }, 400);
+  if (!input || typeof input !== "object") {
+    throw Service.rejectResponse(
+      {
+        message: "Body ontbreekt of heeft een ongeldig formaat.",
+      },
+      400,
+    );
   }
   const { oasBody, oasUrl } = input;
-  if (typeof oasBody === 'string' && oasBody.trim().length > 0) {
+  if (typeof oasBody === "string" && oasBody.trim().length > 0) {
     return {
-      source: 'request-body',
+      source: "request-body",
       contents: oasBody,
     };
   }
-  if (typeof oasUrl === 'string' && oasUrl.trim().length > 0) {
+  if (typeof oasUrl === "string" && oasUrl.trim().length > 0) {
     let parsedUrl;
     try {
       parsedUrl = new URL(oasUrl);
     } catch (error) {
-      throw Service.rejectResponse({
-        message: 'De waarde van oasUrl is geen geldige URL.',
-      }, 400);
+      throw Service.rejectResponse(
+        {
+          message: "De waarde van oasUrl is geen geldige URL.",
+        },
+        400,
+      );
     }
     const contents = await fetchRemoteSpecification(parsedUrl.toString());
     return {
@@ -158,42 +170,45 @@ const resolveSpecificationInput = async (input) => {
       contents,
     };
   }
-  throw Service.rejectResponse({
-    message: 'Geef een oasBody of oasUrl mee.',
-  }, 400);
+  throw Service.rejectResponse(
+    {
+      message: "Geef een oasBody of oasUrl mee.",
+    },
+    400,
+  );
 };
 
 const buildInfo = (lintMessageId, diagnostic) => {
-  const pathValue = Array.isArray(diagnostic.path) && diagnostic.path.length > 0
-    ? diagnostic.path.map(String).join('.')
-    : 'body';
-  return [{
-    id: randomUUID(),
-    lintMessageId,
-    message: diagnostic.message,
-    path: pathValue,
-  }];
+  const pathValue =
+    Array.isArray(diagnostic.path) && diagnostic.path.length > 0 ? diagnostic.path.map(String).join(".") : "body";
+  return [
+    {
+      id: randomUUID(),
+      lintMessageId,
+      message: diagnostic.message,
+      path: pathValue,
+    },
+  ];
 };
 
-const mapDiagnosticsToMessages = (diagnostics, timestamp) => diagnostics.map((diagnostic) => {
-  const lintMessageId = randomUUID();
-  const severityIndex = typeof diagnostic.severity === 'number' && diagnostic.severity >= 0
-    ? diagnostic.severity
-    : 2;
-  const severity = SEVERITY_LABELS[severityIndex] || 'info';
-  return {
-    id: lintMessageId,
-    code: diagnostic.code ? String(diagnostic.code) : 'spectral',
-    createdAt: timestamp,
-    severity,
-    infos: buildInfo(lintMessageId, diagnostic),
-  };
-});
+const mapDiagnosticsToMessages = (diagnostics, timestamp) =>
+  diagnostics.map((diagnostic) => {
+    const lintMessageId = randomUUID();
+    const severityIndex = typeof diagnostic.severity === "number" && diagnostic.severity >= 0 ? diagnostic.severity : 2;
+    const severity = SEVERITY_LABELS[severityIndex] || "info";
+    return {
+      id: lintMessageId,
+      code: diagnostic.code ? String(diagnostic.code) : "spectral",
+      createdAt: timestamp,
+      severity,
+      infos: buildInfo(lintMessageId, diagnostic),
+    };
+  });
 
 const computeAdrScore = (messages) => {
   const failedGroups = new Set();
   messages.forEach((message) => {
-    if (String(message.severity).toLowerCase() !== 'error') {
+    if (String(message.severity).toLowerCase() !== "error") {
       return;
     }
     const group = MEASURED_RULE_GROUPS[message.code];
@@ -206,7 +221,7 @@ const computeAdrScore = (messages) => {
     return { score: 100, failedGroups: [] };
   }
 
-  const score = Math.round((1 - (failedGroups.size / MEASURED_GROUP_KEYS.length)) * 100);
+  const score = Math.round((1 - failedGroups.size / MEASURED_GROUP_KEYS.length) * 100);
   return {
     score: Math.max(0, Math.min(100, score)),
     failedGroups: Array.from(failedGroups).sort(),
@@ -216,11 +231,11 @@ const computeAdrScore = (messages) => {
 const buildLintResult = (diagnostics) => {
   const timestamp = new Date().toISOString();
   const messages = mapDiagnosticsToMessages(diagnostics, timestamp);
-  const errorCount = messages.filter((message) => String(message.severity).toLowerCase() === 'error').length;
+  const errorCount = messages.filter((message) => String(message.severity).toLowerCase() === "error").length;
   const { score } = computeAdrScore(messages);
   return {
     id: randomUUID(),
-    apiId: '',
+    apiId: "",
     createdAt: timestamp,
     failures: errorCount,
     messages,
