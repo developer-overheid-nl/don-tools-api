@@ -1,4 +1,4 @@
-const ToolsController = require('./ToolsController');
+const ToolsController = require("./ToolsController");
 
 module.exports = {
   ToolsController,

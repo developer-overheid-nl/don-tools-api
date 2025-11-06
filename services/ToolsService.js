@@ -1,6 +1,28 @@
 /* eslint-disable no-unused-vars */
-const Service = require('./Service');
-const OasValidatorService = require('./OasValidatorService');
+const Service = require("./Service");
+const OasConversionService = require("./OasConversionService");
+const OasDereferenceService = require("./OasDereferenceService");
+const OasValidatorService = require("./OasValidatorService");
+
+const extractRequestBody = (params) => {
+  if (!params || typeof params !== "object") {
+    return params;
+  }
+  if (params.body !== undefined) {
+    return params.body;
+  }
+  if (params.OASInput !== undefined) {
+    return params.OASInput;
+  }
+  if (params.oASInput !== undefined) {
+    return params.oASInput;
+  }
+  const entries = Object.entries(params);
+  if (entries.length === 1) {
+    return entries[0][1];
+  }
+  return params;
+};
 
 /**
  * Visualiseer Arazzo (POST)
@@ -12,18 +34,23 @@ const OasValidatorService = require('./OasValidatorService');
 // const arazzo = async ({ arazzoInput }) => {
 const arazzo = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'arazzo', params);
+    const mockResult = await Service.applyMock("ToolsService", "arazzo", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
     return Service.successResponse(params);
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -38,18 +65,29 @@ const arazzo = async (params) => {
 // const convertOAS = async ({ oASInput }) => {
 const convertOAS = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'convertOAS', params);
+    const mockResult = await Service.applyMock("ToolsService", "convertOAS", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
-    return Service.successResponse(params);
+    const requestPayload = extractRequestBody(params);
+    const result = await OasConversionService.convert(requestPayload);
+    return {
+      code: 200,
+      headers: result.headers,
+      payload: result.rawBody,
+    };
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -64,18 +102,23 @@ const convertOAS = async (params) => {
 // const createBrunoCollection = async ({ oASInput }) => {
 const createBrunoCollection = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'createBrunoCollection', params);
+    const mockResult = await Service.applyMock("ToolsService", "createBrunoCollection", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
     return Service.successResponse(params);
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -90,18 +133,23 @@ const createBrunoCollection = async (params) => {
 // const createPostmanCollection = async ({ oASInput }) => {
 const createPostmanCollection = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'createPostmanCollection', params);
+    const mockResult = await Service.applyMock("ToolsService", "createPostmanCollection", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
     return Service.successResponse(params);
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -116,18 +164,29 @@ const createPostmanCollection = async (params) => {
 // const dereferenceOAS = async ({ oASInput }) => {
 const dereferenceOAS = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'dereferenceOAS', params);
+    const mockResult = await Service.applyMock("ToolsService", "dereferenceOAS", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
-    return Service.successResponse(params);
+    const requestPayload = extractRequestBody(params);
+    const result = await OasDereferenceService.dereference(requestPayload);
+    return {
+      code: 200,
+      headers: result.headers,
+      payload: result.rawBody,
+    };
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -142,18 +201,23 @@ const dereferenceOAS = async (params) => {
 // const generateOAS = async ({ oASInput }) => {
 const generateOAS = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'generateOAS', params);
+    const mockResult = await Service.applyMock("ToolsService", "generateOAS", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
     return Service.successResponse(params);
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -168,18 +232,23 @@ const generateOAS = async (params) => {
 // const untrustClient = async ({ untrustClientInput }) => {
 const untrustClient = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'untrustClient', params);
+    const mockResult = await Service.applyMock("ToolsService", "untrustClient", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
     return Service.successResponse(params);
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };
@@ -194,19 +263,25 @@ const untrustClient = async (params) => {
 // const validatorOpenAPIPost = async ({ oASInput }) => {
 const validatorOpenAPIPost = async (params) => {
   try {
-    const mockResult = await Service.applyMock('ToolsService', 'validatorOpenAPIPost', params);
+    const mockResult = await Service.applyMock("ToolsService", "validatorOpenAPIPost", params);
     if (mockResult !== undefined) {
-      if (mockResult.action === 'reject') {
+      if (mockResult.action === "reject") {
         throw mockResult.value;
       }
       return mockResult.value;
     }
-    const result = await OasValidatorService.validate(params);
+    const requestPayload = extractRequestBody(params);
+    const result = await OasValidatorService.validate(requestPayload);
     return Service.successResponse(result);
   } catch (e) {
+    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
+    const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
-      e.message || 'Invalid input',
-      e.status || 405,
+      {
+        message,
+        detail: e.detail || message,
+      },
+      status,
     );
   }
 };

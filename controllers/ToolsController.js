@@ -6,8 +6,8 @@
  * parameters are extracted and sent to the service, and where response is handled.
  */
 
-const Controller = require('./Controller');
-const service = require('../services/ToolsService');
+const Controller = require("./Controller");
+const service = require("../services/ToolsService");
 
 const arazzo = async (request, response) => {
   await Controller.handleRequest(request, response, service.arazzo);

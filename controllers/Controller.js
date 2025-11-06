@@ -1,51 +1,69 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const config = require('../config');
-const Service = require('../services/Service');
+const fs = require("node:fs");
+const path = require("node:path");
+const config = require("../config");
+const Service = require("../services/Service");
 
 class Controller {
   static getStatusText(status) {
     const statusTexts = {
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      405: 'Method Not Allowed',
-      409: 'Conflict',
-      422: 'Unprocessable Entity',
-      429: 'Too Many Requests',
-      500: 'Internal Server Error',
+      400: "Bad Request",
+      401: "Unauthorized",
+      403: "Forbidden",
+      404: "Not Found",
+      405: "Method Not Allowed",
+      409: "Conflict",
+      422: "Unprocessable Entity",
+      429: "Too Many Requests",
+      500: "Internal Server Error",
     };
-    return statusTexts[status] || 'Unknown Error';
+    return statusTexts[status] || "Unknown Error";
   }
 
   static sendResponse(response, payload) {
     /**
-    * The default response-code is 200. We want to allow to change that. in That case,
-    * payload will be an object consisting of a code and a payload. If not customized
-    * send 200 and the payload as received in this method.
-    */
+     * The default response-code is 200. We want to allow to change that. in That case,
+     * payload will be an object consisting of a code and a payload. If not customized
+     * send 200 and the payload as received in this method.
+     */
     response.status(payload.code || 200);
+    if (payload.headers && typeof payload.headers === "object") {
+      Object.entries(payload.headers).forEach(([header, value]) => {
+        if (value !== undefined) {
+          response.set(header, value);
+        }
+      });
+    }
     const responsePayload = payload.payload !== undefined ? payload.payload : payload;
-    if (responsePayload instanceof Object) {
+    if (Buffer.isBuffer(responsePayload)) {
+      if (!response.get("Content-Type")) {
+        response.set("Content-Type", "application/octet-stream");
+      }
+      response.send(responsePayload);
+      return;
+    }
+    if (responsePayload !== null && typeof responsePayload === "object") {
       response.json(responsePayload);
-    } else {
+    } else if (responsePayload !== undefined) {
       response.end(responsePayload);
+    } else {
+      response.end();
     }
   }
 
   static sendError(response, error) {
     const status = error.code || 500;
-    const reason = error.message || (error.error && error.error.message) || 'Unexpected error';
+    const reason = error.message || error.error?.message || "Unexpected error";
     const detail = error.detail || reason;
     let invalidParams = [];
     if (Array.isArray(error.invalidParams)) {
       invalidParams = error.invalidParams;
     } else if (error.field !== undefined || error.reason !== undefined) {
-      invalidParams = [{
-        name: error.field || 'body',
-        reason: error.reason || detail,
-      }];
+      invalidParams = [
+        {
+          name: error.field || "body",
+          reason: error.reason || detail,
+        },
+      ];
     }
 
     const problem = {
@@ -53,7 +71,7 @@ class Controller {
       title: Controller.getStatusText(status),
       status,
       detail,
-      instance: error.instance || 'body',
+      instance: error.instance || "body",
     };
     if (invalidParams.length > 0) {
       problem.invalidParams = invalidParams;
@@ -63,42 +81,44 @@ class Controller {
   }
 
   /**
-  * Files have been uploaded to the directory defined by config.js as upload directory
-  * Files have a temporary name, that was saved as 'filename' of the file object that is
-  * referenced in request.files array.
-  * This method finds the file and changes it to the file name that was originally called
-  * when it was uploaded. To prevent files from being overwritten, a timestamp is added between
-  * the filename and its extension
-  * @param request
-  * @param fieldName
-  * @returns {string}
-  */
+   * Files have been uploaded to the directory defined by config.js as upload directory
+   * Files have a temporary name, that was saved as 'filename' of the file object that is
+   * referenced in request.files array.
+   * This method finds the file and changes it to the file name that was originally called
+   * when it was uploaded. To prevent files from being overwritten, a timestamp is added between
+   * the filename and its extension
+   * @param request
+   * @param fieldName
+   * @returns {string}
+   */
   static collectFile(request, fieldName) {
-    let uploadedFileName = '';
+    let uploadedFileName = "";
     if (request.files && request.files.length > 0) {
       const fileObject = request.files.find((file) => file.fieldname === fieldName);
       if (fileObject) {
-        const fileArray = fileObject.originalname.split('.');
+        const fileArray = fileObject.originalname.split(".");
         const extension = fileArray.pop();
         fileArray.push(`_${Date.now()}`);
-        uploadedFileName = `${fileArray.join('')}.${extension}`;
-        fs.renameSync(path.join(config.FILE_UPLOAD_PATH, fileObject.filename),
-          path.join(config.FILE_UPLOAD_PATH, uploadedFileName));
+        uploadedFileName = `${fileArray.join("")}.${extension}`;
+        fs.renameSync(
+          path.join(config.FILE_UPLOAD_PATH, fileObject.filename),
+          path.join(config.FILE_UPLOAD_PATH, uploadedFileName),
+        );
       }
     }
     return uploadedFileName;
   }
 
   static getRequestBodyName(request) {
-    const codeGenDefinedBodyName = request.openapi.schema['x-codegen-request-body-name'];
+    const codeGenDefinedBodyName = request.openapi.schema["x-codegen-request-body-name"];
     if (codeGenDefinedBodyName !== undefined) {
       return codeGenDefinedBodyName;
     }
-    const refObjectPath = request.openapi.schema.requestBody.content['application/json'].schema.$ref;
+    const refObjectPath = request.openapi.schema.requestBody.content["application/json"].schema.$ref;
     if (refObjectPath !== undefined && refObjectPath.length > 0) {
-      return (refObjectPath.substr(refObjectPath.lastIndexOf('/') + 1));
+      return refObjectPath.substr(refObjectPath.lastIndexOf("/") + 1);
     }
-    return 'body';
+    return "body";
   }
 
   static aliasRequestBodyParam(params, bodyName, value) {
@@ -109,7 +129,7 @@ class Controller {
     if (!Object.prototype.hasOwnProperty.call(result, bodyName)) {
       result[bodyName] = value;
     }
-    if (!Object.prototype.hasOwnProperty.call(result, 'body')) {
+    if (!Object.prototype.hasOwnProperty.call(result, "body")) {
       result.body = value;
     }
     const sanitizedName = Service.sanitizeOperationId(bodyName);
@@ -120,7 +140,7 @@ class Controller {
     if (lowerCaseName && !Object.prototype.hasOwnProperty.call(result, lowerCaseName)) {
       result[lowerCaseName] = value;
     }
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
       Object.keys(value).forEach((key) => {
         if (!Object.prototype.hasOwnProperty.call(result, key)) {
           result[key] = value[key];
@@ -134,9 +154,9 @@ class Controller {
     let requestParams = {};
     if (request.openapi.schema.requestBody !== null) {
       const { content } = request.openapi.schema.requestBody;
-      if (content['application/json'] !== undefined) {
-        const requestBodyName = this.getRequestBodyName(request);
-        const schemaObject = content['application/json'].schema || {};
+      if (content["application/json"] !== undefined) {
+        const requestBodyName = Controller.getRequestBodyName(request);
+        const schemaObject = content["application/json"].schema || {};
         let schemaDefinition = schemaObject;
         if (schemaObject.$ref) {
           const resolved = Service.resolveRef(schemaObject.$ref);
@@ -144,25 +164,24 @@ class Controller {
             schemaDefinition = resolved;
           }
         }
-        const requiredProperties = Array.isArray(schemaDefinition.required)
-          ? schemaDefinition.required
-          : [];
+        const requiredProperties = Array.isArray(schemaDefinition.required) ? schemaDefinition.required : [];
         const payload = request.body || {};
         if (requiredProperties.length > 0) {
           const missing = requiredProperties.filter((prop) => payload[prop] === undefined);
           if (missing.length > 0) {
-            throw Service.rejectResponse({
-              message: `Missing required properties: ${missing.join(', ')}`,
-              field: requestBodyName,
-              detail: `Missing required properties: ${missing.join(', ')}`,
-            }, 400);
+            throw Service.rejectResponse(
+              {
+                message: `Missing required properties: ${missing.join(", ")}`,
+                field: requestBodyName,
+                detail: `Missing required properties: ${missing.join(", ")}`,
+              },
+              400,
+            );
           }
         }
-        const declaredProperties = schemaDefinition && schemaDefinition.properties
-          ? Object.keys(schemaDefinition.properties)
-          : [];
+        const declaredProperties = schemaDefinition?.properties ? Object.keys(schemaDefinition.properties) : [];
         const allowAdditional = (() => {
-          if (schemaDefinition && Object.prototype.hasOwnProperty.call(schemaDefinition, 'additionalProperties')) {
+          if (schemaDefinition && Object.prototype.hasOwnProperty.call(schemaDefinition, "additionalProperties")) {
             return schemaDefinition.additionalProperties !== false;
           }
           return false;
@@ -170,40 +189,45 @@ class Controller {
         if (!allowAdditional) {
           const unknownProperties = Object.keys(payload).filter((prop) => !declaredProperties.includes(prop));
           if (unknownProperties.length > 0) {
-            throw Service.rejectResponse({
-              message: `Unknown properties: ${unknownProperties.join(', ')}`,
-              field: requestBodyName,
-              detail: `Unknown properties: ${unknownProperties.join(', ')}`,
-            }, 400);
+            throw Service.rejectResponse(
+              {
+                message: `Unknown properties: ${unknownProperties.join(", ")}`,
+                field: requestBodyName,
+                detail: `Unknown properties: ${unknownProperties.join(", ")}`,
+              },
+              400,
+            );
           }
         }
         if (Object.keys(payload).length > 0) {
-          requestParams = Controller.aliasRequestBodyParam({
-            ...requestParams,
-            [requestBodyName]: payload,
-          }, requestBodyName, payload);
+          requestParams = Controller.aliasRequestBodyParam(
+            {
+              ...requestParams,
+              [requestBodyName]: payload,
+            },
+            requestBodyName,
+            payload,
+          );
         }
-      } else if (content['multipart/form-data'] !== undefined) {
-        Object.keys(content['multipart/form-data'].schema.properties).forEach(
-          (property) => {
-            const propertyObject = content['multipart/form-data'].schema.properties[property];
-            if (propertyObject.format !== undefined && propertyObject.format === 'binary') {
-              requestParams[property] = this.collectFile(request, property);
-            } else {
-              requestParams[property] = request.body[property];
-            }
-          },
-        );
+      } else if (content["multipart/form-data"] !== undefined) {
+        Object.keys(content["multipart/form-data"].schema.properties).forEach((property) => {
+          const propertyObject = content["multipart/form-data"].schema.properties[property];
+          if (propertyObject.format !== undefined && propertyObject.format === "binary") {
+            requestParams[property] = Controller.collectFile(request, property);
+          } else {
+            requestParams[property] = request.body[property];
+          }
+        });
       }
     }
 
     if (request.openapi.schema.parameters !== undefined) {
       request.openapi.schema.parameters.forEach((param) => {
-        if (param.in === 'path') {
+        if (param.in === "path") {
           requestParams[param.name] = request.openapi.pathParams[param.name];
-        } else if (param.in === 'query') {
+        } else if (param.in === "query") {
           requestParams[param.name] = request.query[param.name];
-        } else if (param.in === 'header') {
+        } else if (param.in === "header") {
           requestParams[param.name] = request.headers[param.name];
         }
       });
@@ -213,7 +237,7 @@ class Controller {
 
   static async handleRequest(request, response, serviceOperation) {
     try {
-      const serviceResponse = await serviceOperation(this.collectRequestParams(request));
+      const serviceResponse = await serviceOperation(Controller.collectRequestParams(request));
       Controller.sendResponse(response, serviceResponse);
     } catch (error) {
       Controller.sendError(response, error);

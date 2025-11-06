@@ -1,0 +1,526 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Tools API v1",
+    "description": "API van het Tools (apis.developer.overheid.nl)",
+    "contact": {
+      "name": "Team developer.overheid.nl",
+      "url": "https://github.com/developer-overheid-nl/don-tools-api/issues",
+      "email": "developer.overheid@geonovum.nl"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.developer.overheid.nl/tools/v1",
+      "description": "Production"
+    },
+    {
+      "url": "https://api-register.don.apps.digilab.network/tools/v1",
+      "description": "Test"
+    }
+  ],
+  "paths": {
+    "/v1/arazzo/parse": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Visualiseer Arazzo (POST)",
+        "description": "Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid. Body: { arazzoUrl|arazzoBody }",
+        "operationId": "arazzo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArazzoInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsArazzoVisualization"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/auth/clients": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Maak client (POST)",
+        "description": "Maak een client aan via de admin API. Body bevat Email.",
+        "operationId": "untrustClient",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UntrustClientInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsKeycloakClientResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/bruno/convert": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Maak Bruno-collectie (POST)",
+        "description": "Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
+        "operationId": "CreateBrunoCollection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OASInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/oas/convert": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Converteer OpenAPI 3.0/3.1",
+        "description": "Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
+        "operationId": "ConvertOAS",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OASInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/oas/dereference": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Dereference OpenAPI",
+        "description": "Haalt externe $ref verwijzingen op en levert één compleet OpenAPI document terug. Body: { oasUrl } of { oasBody }.",
+        "operationId": "DereferenceOAS",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OASInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/oas/generate": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Generate OpenAPI",
+        "description": "Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
+        "operationId": "GenerateOAS",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OASInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/oas/validate": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Validate OpenAPI (POST)",
+        "description": "Valideert een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
+        "operationId": "validatorOpenAPIPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OASInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsLintResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    },
+    "/v1/postman/convert": {
+      "post": {
+        "tags": ["Tools"],
+        "summary": "Maak Postman-collectie (POST)",
+        "description": "Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
+        "operationId": "CreatePostmanCollection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OASInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "description": "De API-versie van de response",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [],
+            "clientCredentials": ["tools"]
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArazzoInput": {
+        "type": "object",
+        "properties": {
+          "arazzoBody": {
+            "type": "string"
+          },
+          "arazzoUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "OASInput": {
+        "type": "object",
+        "properties": {
+          "oasBody": {
+            "type": "string"
+          },
+          "oasUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelsArazzoVisualization": {
+        "type": "object",
+        "properties": {
+          "markdown": {
+            "type": "string"
+          },
+          "mermaid": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelsKeycloakClientResult": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelsLintMessage": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "infos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelsLintMessageInfo"
+            }
+          },
+          "severity": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelsLintMessageInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lintMessageId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelsLintResult": {
+        "type": "object",
+        "properties": {
+          "apiId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelsLintMessage"
+            }
+          },
+          "score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "successes": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UntrustClientInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "404": {
+        "$ref": "https://static.developer.overheid.nl/adr/components.yaml#/responses/404"
+      }
+    },
+    "headers": {
+      "API-Version": {
+        "description": "De API-versie van de response",
+        "schema": {
+          "type": "string",
+          "example": "1.0.0"
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "clientCredentials": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token",
+            "scopes": {
+              "tools:read": "Toegang tot de tools endpoints"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "API v1",
+      "description": "Tools API V1 routes"
+    },
+    {
+      "name": "Tools",
+      "description": "Conversies en hulpmiddelen"
+    }
+  ]
+}
