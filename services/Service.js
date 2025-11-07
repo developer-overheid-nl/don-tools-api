@@ -14,28 +14,54 @@ class Service {
   }
 
   static isErrorResponse(result) {
-    return Boolean(
-      result &&
-        Object.prototype.hasOwnProperty.call(result, "error") &&
-        Object.prototype.hasOwnProperty.call(result, "code"),
-    );
+    return Boolean(result && Object.hasOwn(result, "error") && Object.hasOwn(result, "code"));
   }
 
   static normalizeSuccessResponse(result) {
     if (result === undefined) {
       return undefined;
     }
-    if (result && Object.prototype.hasOwnProperty.call(result, "payload")) {
+    if (result && Object.hasOwn(result, "payload")) {
       return result;
     }
     return Service.successResponse(result);
+  }
+
+  static extractRequestBody(params) {
+    if (!params || typeof params !== "object") {
+      return params;
+    }
+    if (params.body !== undefined) {
+      return params.body;
+    }
+    if (params.OASInput !== undefined) {
+      return params.OASInput;
+    }
+    if (params.oASInput !== undefined) {
+      return params.oASInput;
+    }
+    const entries = Object.entries(params);
+    if (entries.length === 1) {
+      return entries[0][1];
+    }
+    return params;
+  }
+
+  static throwHttpError(status, message, detail = undefined) {
+    throw Service.rejectResponse(
+      {
+        message,
+        detail: detail || message,
+      },
+      status,
+    );
   }
 
   static getMockModule(serviceName) {
     if (!config.USE_MOCKS) {
       return null;
     }
-    if (!Object.prototype.hasOwnProperty.call(Service.mockModules, serviceName)) {
+    if (!Object.hasOwn(Service.mockModules, serviceName)) {
       const mockPath = path.join(config.MOCK_DIR, `${serviceName}.js`);
       if (!fs.existsSync(mockPath)) {
         Service.mockModules[serviceName] = null;
@@ -118,7 +144,7 @@ class Service {
     }
     try {
       const specContents = fs.readFileSync(config.OPENAPI_YAML, "utf8");
-      Service.apiDoc = jsYaml.safeLoad(specContents);
+      Service.apiDoc = jsYaml.load(specContents);
     } catch (error) {
       logger.error(`Unable to load OpenAPI spec for auto mocks: ${error.message}`);
       Service.apiDoc = null;
@@ -155,11 +181,7 @@ class Service {
             index[sanitizedId] = entry;
           }
           const lowerId = operationId.toLowerCase();
-          if (
-            lowerId !== operationId &&
-            lowerId !== sanitizedId &&
-            !Object.prototype.hasOwnProperty.call(index, lowerId)
-          ) {
+          if (lowerId !== operationId && lowerId !== sanitizedId && !Object.hasOwn(index, lowerId)) {
             index[lowerId] = entry;
           }
         });
@@ -181,7 +203,7 @@ class Service {
     let current = apiDoc;
     for (let i = 0; i < parts.length; i += 1) {
       const part = parts[i];
-      if (!Object.prototype.hasOwnProperty.call(current, part)) {
+      if (!Object.hasOwn(current, part)) {
         return undefined;
       }
       current = current[part];
@@ -236,7 +258,7 @@ class Service {
     }
     try {
       return JSON.parse(JSON.stringify(value));
-    } catch (error) {
+    } catch (_error) {
       return value;
     }
   }

@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const config = require("../config");
 const Service = require("../services/Service");
+const logger = require("../logger");
 
 class Controller {
   static getStatusText(status) {
@@ -77,6 +78,13 @@ class Controller {
       problem.invalidParams = invalidParams;
     }
 
+    logger.error(`Request failed (${status} ${Controller.getStatusText(status)}): ${reason}`, {
+      detail,
+      invalidParams,
+      errorMessage: error?.message,
+      stack: error?.stack,
+    });
+
     response.status(status).json(problem);
   }
 
@@ -126,23 +134,23 @@ class Controller {
       return params;
     }
     const result = { ...params };
-    if (!Object.prototype.hasOwnProperty.call(result, bodyName)) {
+    if (!Object.hasOwn(result, bodyName)) {
       result[bodyName] = value;
     }
-    if (!Object.prototype.hasOwnProperty.call(result, "body")) {
+    if (!Object.hasOwn(result, "body")) {
       result.body = value;
     }
     const sanitizedName = Service.sanitizeOperationId(bodyName);
-    if (sanitizedName && !Object.prototype.hasOwnProperty.call(result, sanitizedName)) {
+    if (sanitizedName && !Object.hasOwn(result, sanitizedName)) {
       result[sanitizedName] = value;
     }
     const lowerCaseName = bodyName.charAt(0).toLowerCase() + bodyName.slice(1);
-    if (lowerCaseName && !Object.prototype.hasOwnProperty.call(result, lowerCaseName)) {
+    if (lowerCaseName && !Object.hasOwn(result, lowerCaseName)) {
       result[lowerCaseName] = value;
     }
     if (value && typeof value === "object" && !Array.isArray(value)) {
       Object.keys(value).forEach((key) => {
-        if (!Object.prototype.hasOwnProperty.call(result, key)) {
+        if (!Object.hasOwn(result, key)) {
           result[key] = value[key];
         }
       });
@@ -181,7 +189,7 @@ class Controller {
         }
         const declaredProperties = schemaDefinition?.properties ? Object.keys(schemaDefinition.properties) : [];
         const allowAdditional = (() => {
-          if (schemaDefinition && Object.prototype.hasOwnProperty.call(schemaDefinition, "additionalProperties")) {
+          if (schemaDefinition && Object.hasOwn(schemaDefinition, "additionalProperties")) {
             return schemaDefinition.additionalProperties !== false;
           }
           return false;

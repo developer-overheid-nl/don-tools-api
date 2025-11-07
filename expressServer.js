@@ -82,7 +82,7 @@ class ExpressServer {
     this.port = port;
     this.app = express();
     try {
-      this.schema = jsYaml.safeLoad(fs.readFileSync(openApiYaml));
+      this.schema = jsYaml.load(fs.readFileSync(openApiYaml, "utf8"));
       if (this.schema?.components) {
         const { components } = this.schema;
         const componentMirrors = [
@@ -136,11 +136,11 @@ class ExpressServer {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: false }));
     this.app.use(cookieParser());
-    this.app.use((req, res, next) => {
+    this.app.use((_req, res, next) => {
       res.set("API-Version", this.schema.info.version);
       next();
     });
-    this.app.get("/openapi.json", (req, res) => res.json(this.schema));
+    this.app.get("/openapi.json", (_req, res) => res.json(this.schema));
     this.app.get("/login-redirect", (req, res) => {
       res.status(200);
       res.json(req.query);
@@ -235,7 +235,7 @@ class ExpressServer {
 
   launch() {
     // eslint-disable-next-line no-unused-vars
-    this.app.use((err, req, res, next) => {
+    this.app.use((err, req, res, _next) => {
       // format errors using RFC 7807 Problem Details format
       const status = err.status || 500;
       const problemDetails = {

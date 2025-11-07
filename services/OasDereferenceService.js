@@ -4,6 +4,8 @@ const jsYaml = require("js-yaml");
 const { fetch } = require("@stoplight/spectral-runtime");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
+const logger = require("../logger");
+const { sanitizeFileName } = require("../utils/fileName");
 
 const ROOT_KEY = "__root__";
 const REQUEST_TIMEOUT_MS = 2000;
@@ -19,27 +21,13 @@ const guessPreferredExtension = (contents) => {
   return ".yaml";
 };
 
-const sanitizeFilename = (value) => {
-  if (typeof value !== "string") {
-    return "";
-  }
-  const normalized = value
-    .normalize("NFKD")
-    .replace(/['"]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .trim();
-  return normalized.slice(0, 128);
-};
-
 const deriveDocumentName = (doc, baseUrl) => {
   if (doc && typeof doc === "object" && !Array.isArray(doc)) {
     const info = doc.info;
     if (info && typeof info === "object") {
       const title = typeof info.title === "string" ? info.title.trim() : "";
       if (title.length > 0) {
-        const sanitized = sanitizeFilename(title);
+        const sanitized = sanitizeFileName(title);
         if (sanitized.length > 0) {
           return sanitized;
         }
@@ -51,7 +39,7 @@ const deriveDocumentName = (doc, baseUrl) => {
     if (basePath.length > 0) {
       const basename = path.posix.basename(basePath);
       const withoutExt = basename.replace(/\.[^.]+$/, "");
-      const sanitized = sanitizeFilename(withoutExt);
+      const sanitized = sanitizeFileName(withoutExt);
       if (sanitized.length > 0) {
         return sanitized;
       }
@@ -128,7 +116,7 @@ const jsonPointerLookup = (doc, pointer) => {
     if (!current || typeof current !== "object") {
       throw new Error(`pad '${pointer}' verwijst naar ongeldige structuur`);
     }
-    if (!Object.prototype.hasOwnProperty.call(current, key)) {
+    if (!Object.hasOwn(current, key)) {
       throw new Error(`pad '${pointer}' niet gevonden`);
     }
     current = current[key];
@@ -147,8 +135,12 @@ const fetchWithTimeout = async (url) => {
     return await response.text();
   } catch (error) {
     if (error.name === "AbortError") {
+      logger.error(`[OasDereferenceService] fetch timeout for ${url}: ${error.message}`);
       throw new Error("Timeout tijdens ophalen van document");
     }
+    logger.error(
+      `[OasDereferenceService] fetch failed for ${url}: ${error.message}${error.stack ? ` stack=${error.stack}` : ""}`,
+    );
     throw error;
   } finally {
     clearTimeout(timeoutId);
@@ -303,6 +295,7 @@ const dereference = async (input) => {
   try {
     specInput = await resolveOasInput(input);
   } catch (error) {
+    logger.error("[OasDereferenceService] resolveOasInput failed", { message: error.message, stack: error.stack });
     if (Service.isErrorResponse(error)) {
       throw error;
     }
@@ -329,6 +322,7 @@ const dereference = async (input) => {
   try {
     rawDocument = jsYaml.load(contents);
   } catch (error) {
+    logger.error("[OasDereferenceService] parsing failed", { message: error.message, stack: error.stack });
     throw Service.rejectResponse(
       {
         message: `Kon OpenAPI document niet parsen: ${error.message}`,

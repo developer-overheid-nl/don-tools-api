@@ -1,6 +1,7 @@
 const jsYaml = require("js-yaml");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
+const logger = require("../logger");
 
 const JSON_SCHEMA_DIALECT_BASE = "https://spec.openapis.org/oas/3.1/dialect/base";
 
@@ -19,7 +20,7 @@ const parseSpecification = (contents) => {
       throw new Error("Ongeldig OpenAPI document");
     }
     return { spec, format: "json" };
-  } catch (jsonError) {
+  } catch (_jsonError) {
     try {
       const spec = jsYaml.load(trimmed);
       if (!spec || typeof spec !== "object" || Array.isArray(spec)) {
@@ -48,7 +49,9 @@ const mergeTypeWithNull = (target) => {
 
 const convertSchemas30To31 = (node) => {
   if (Array.isArray(node)) {
-    node.forEach((item) => convertSchemas30To31(item));
+    for (const item of node) {
+      convertSchemas30To31(item);
+    }
     return;
   }
   if (!node || typeof node !== "object") {
@@ -121,7 +124,9 @@ const normalizeEnumNull = (target) => {
 
 const convertSchemas31To30 = (node) => {
   if (Array.isArray(node)) {
-    node.forEach((item) => convertSchemas31To30(item));
+    for (const item of node) {
+      convertSchemas31To30(item);
+    }
     return;
   }
   if (!node || typeof node !== "object") {
@@ -131,8 +136,8 @@ const convertSchemas31To30 = (node) => {
     convertSchemas31To30(value);
     node[key] = value;
   });
-  if (Object.prototype.hasOwnProperty.call(node, "const")) {
-    if (!Object.prototype.hasOwnProperty.call(node, "enum")) {
+  if (Object.hasOwn(node, "const")) {
+    if (!Object.hasOwn(node, "enum")) {
       node.enum = [node.const];
     }
     delete node.const;
@@ -151,11 +156,11 @@ const convertSpec = (spec) => {
   if (rawVersion.startsWith("3.0")) {
     const targetVersion = "3.1.0";
     convertSchemas30To31(spec);
-    if (!Object.prototype.hasOwnProperty.call(spec, "jsonSchemaDialect")) {
+    if (!Object.hasOwn(spec, "jsonSchemaDialect")) {
       spec.jsonSchemaDialect = JSON_SCHEMA_DIALECT_BASE;
     }
-    if (Object.prototype.hasOwnProperty.call(spec, "x-webhooks")) {
-      if (!Object.prototype.hasOwnProperty.call(spec, "webhooks")) {
+    if (Object.hasOwn(spec, "x-webhooks")) {
+      if (!Object.hasOwn(spec, "webhooks")) {
         spec.webhooks = spec["x-webhooks"];
       }
       delete spec["x-webhooks"];
@@ -167,8 +172,8 @@ const convertSpec = (spec) => {
     const targetVersion = "3.0.3";
     convertSchemas31To30(spec);
     delete spec.jsonSchemaDialect;
-    if (Object.prototype.hasOwnProperty.call(spec, "webhooks")) {
-      if (!Object.prototype.hasOwnProperty.call(spec, "x-webhooks")) {
+    if (Object.hasOwn(spec, "webhooks")) {
+      if (!Object.hasOwn(spec, "x-webhooks")) {
         spec["x-webhooks"] = spec.webhooks;
       }
       delete spec.webhooks;
@@ -203,6 +208,11 @@ const convert = async (input) => {
   try {
     parsed = parseSpecification(contents);
   } catch (error) {
+    logger.error(
+      `[OasConversionService] parseSpecification failed: ${error?.message || "unknown"}${
+        error?.stack ? ` stack=${error.stack}` : ""
+      }`,
+    );
     if (Service.isErrorResponse(error)) {
       throw error;
     }
@@ -225,6 +235,11 @@ const convert = async (input) => {
       rawBody: buffer,
     };
   } catch (error) {
+    logger.error(
+      `[OasConversionService] convertSpec failed: ${error?.message || "unknown"}${
+        error?.stack ? ` stack=${error.stack}` : ""
+      }`,
+    );
     if (Service.isErrorResponse(error)) {
       throw error;
     }
