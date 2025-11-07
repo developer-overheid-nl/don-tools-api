@@ -27,7 +27,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ArazzoInput"
+              $ref: "#/components/schemas/OASInput"
       responses:
         "200":
           content:
@@ -285,16 +285,6 @@ components:
         API-Version:
           $ref: "#/headers/API-Version"
   schemas:
-    ArazzoInput:
-      example:
-        arazzoBody: arazzoBody
-        arazzoUrl: arazzoUrl
-      properties:
-        arazzoBody:
-          type: string
-        arazzoUrl:
-          type: string
-      type: object
     OASInput:
       example:
         oasUrl: oasUrl

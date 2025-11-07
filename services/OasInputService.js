@@ -1,23 +1,5 @@
-const { fetch } = require("@stoplight/spectral-runtime");
 const Service = require("./Service");
-
-const fetchRemoteSpecification = async (oasUrl) => {
-  try {
-    const response = await fetch(oasUrl);
-    if (!response.ok) {
-      throw new Error(`Server gaf status ${response.status}`);
-    }
-    return await response.text();
-  } catch (error) {
-    throw Service.rejectResponse(
-      {
-        message: "Het ophalen van de OpenAPI specificatie is mislukt.",
-        detail: error.message,
-      },
-      400,
-    );
-  }
-};
+const { fetchSpecification } = require("./RemoteSpecificationService");
 
 const resolveOasInput = async (input) => {
   if (!input || typeof input !== "object") {
@@ -47,7 +29,9 @@ const resolveOasInput = async (input) => {
         400,
       );
     }
-    const contents = await fetchRemoteSpecification(parsedUrl.toString());
+    const contents = await fetchSpecification(parsedUrl.toString(), {
+      errorMessage: "Het ophalen van de OpenAPI specificatie is mislukt.",
+    });
     return {
       source: parsedUrl.toString(),
       contents,

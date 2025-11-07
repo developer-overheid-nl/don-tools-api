@@ -5,9 +5,9 @@ const spectralFunctions = require("@stoplight/spectral-functions");
 const jsYaml = require("js-yaml");
 const { Spectral, Document, Ruleset } = require("@stoplight/spectral-core");
 const Parsers = require("@stoplight/spectral-parsers");
-const { fetch } = require("@stoplight/spectral-runtime");
 const { oas: oasRuleset } = require("@stoplight/spectral-rulesets");
 const Service = require("./Service");
+const { fetchSpecification } = require("./RemoteSpecificationService");
 const logger = require("../logger");
 
 const RULESET_PATH = path.join(__dirname, "..", "rulesets", "adr-ruleset.yaml");
@@ -86,6 +86,10 @@ const loadRulesetDefinition = async () => {
     }
     return definition;
   } catch (error) {
+    logger.error("[OasValidatorService] loadRulesetDefinition failed", {
+      message: error.message,
+      stack: error.stack,
+    });
     throw new Error(error.message || "Onbekende fout bij het laden van het ruleset-bestand.");
   }
 };
@@ -118,24 +122,6 @@ const loadSpectral = async () => {
   return spectralInstancePromise;
 };
 
-const fetchRemoteSpecification = async (oasUrl) => {
-  try {
-    const response = await fetch(oasUrl);
-    if (!response.ok) {
-      throw new Error(`Server gaf status ${response.status}`);
-    }
-    return await response.text();
-  } catch (error) {
-    throw Service.rejectResponse(
-      {
-        message: "Het ophalen van de OpenAPI specificatie is mislukt.",
-        detail: error.message,
-      },
-      400,
-    );
-  }
-};
-
 const resolveSpecificationInput = async (input) => {
   if (!input || typeof input !== "object") {
     throw Service.rejectResponse(
@@ -157,6 +143,7 @@ const resolveSpecificationInput = async (input) => {
     try {
       parsedUrl = new URL(oasUrl);
     } catch (error) {
+      logger.error("[OasValidatorService] invalid oasUrl", { message: error.message });
       throw Service.rejectResponse(
         {
           message: "De waarde van oasUrl is geen geldige URL.",
@@ -164,7 +151,9 @@ const resolveSpecificationInput = async (input) => {
         400,
       );
     }
-    const contents = await fetchRemoteSpecification(parsedUrl.toString());
+    const contents = await fetchSpecification(parsedUrl.toString(), {
+      errorMessage: "Het ophalen van de OpenAPI specificatie is mislukt.",
+    });
     return {
       source: parsedUrl.toString(),
       contents,

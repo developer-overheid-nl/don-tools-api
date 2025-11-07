@@ -2,7 +2,7 @@ const logger = require("../logger");
 const controllers = require("../controllers");
 const Services = require("../services");
 
-function handleError(err, request, response, next) {
+function handleError(err, _request, response, next) {
   logger.error(err);
   const code = err.code || 400;
   response.status(code);

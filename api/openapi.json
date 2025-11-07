@@ -31,7 +31,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ArazzoInput"
+                "$ref": "#/components/schemas/OASInput"
               }
             }
           }
