@@ -126,12 +126,21 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 			return fmt.Errorf("limiter error: %w", err)
 		}
 
-		status, _, err := s.postAPI(ctx, payload, token)
+		status, body, err := s.postAPI(ctx, payload, token)
 		if err != nil {
 			if status == http.StatusBadRequest {
+				if apiExistsAlready(body) {
+					if _, _, putErr := s.putAPI(ctx, payload, token); putErr != nil {
+						aggErrs = append(aggErrs, fmt.Sprintf("%s (put): %v", oasURL, putErr))
+						fmt.Printf("[harvest] put fallback failed for %s: %v\n", oasURL, putErr)
+						continue
+					}
+					continue
+				}
 				fmt.Printf("[harvest] bad request on %s: %v\n", oasURL, err)
 				continue
 			}
+			aggErrs = append(aggErrs, fmt.Sprintf("%s: %v", oasURL, err))
 		}
 	}
 
@@ -143,11 +152,19 @@ func (s *HarvesterService) RunOnce(ctx context.Context, src models.HarvestSource
 
 // postAPI stuurt de registratie-payload naar het geconfigureerde endpoint
 func (s *HarvesterService) postAPI(ctx context.Context, payload models.ApiPost, bearer string) (int, string, error) {
+	return s.sendRegisterRequest(ctx, http.MethodPost, payload, bearer)
+}
+
+func (s *HarvesterService) putAPI(ctx context.Context, payload models.ApiPost, bearer string) (int, string, error) {
+	return s.sendRegisterRequest(ctx, http.MethodPut, payload, bearer)
+}
+
+func (s *HarvesterService) sendRegisterRequest(ctx context.Context, method string, payload models.ApiPost, bearer string) (int, string, error) {
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return 0, "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.registerEndpoint, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, method, s.registerEndpoint, bytes.NewReader(b))
 	if err != nil {
 		return 0, "", err
 	}
@@ -166,6 +183,12 @@ func (s *HarvesterService) postAPI(ctx context.Context, payload models.ApiPost, 
 		return resp.StatusCode, body, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
 	}
 	return resp.StatusCode, body, nil
+}
+
+// apiExistsAlready reports whether the register responded that the API already exists.
+func apiExistsAlready(body string) bool {
+	detail := strings.ToLower(body)
+	return strings.Contains(detail, "api bestaat al")
 }
 
 // getAccessToken retrieves an OAuth2 access token via client_credentials
