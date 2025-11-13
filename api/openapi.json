@@ -33,7 +33,7 @@
   "paths": {
     "/v1/arazzo/markdown": {
       "post": {
-        "description": "Genereert alleen de Markdown-uitvoer van een Arazzo specificatie. Body: { arazzoUrl|arazzoBody }",
+        "description": "Genereert alleen de Markdown-uitvoer van een Arazzo specificatie. Body: { oasUrl|oasBody }",
         "operationId": "arazzoMarkdown",
         "requestBody": {
           "content": {
@@ -82,7 +82,7 @@
     },
     "/v1/arazzo/mermaid": {
       "post": {
-        "description": "Genereert alleen de Mermaid flowchart van een Arazzo specificatie. Body: { arazzoUrl|arazzoBody }",
+        "description": "Genereert alleen de Mermaid flowchart van een Arazzo specificatie. Body: { oasUrl|oasBody }",
         "operationId": "arazzoMermaid",
         "requestBody": {
           "content": {
@@ -313,7 +313,7 @@
     },
     "/v1/oas/validate": {
       "post": {
-        "description": "Valideert een OpenAPI specificatie met de DON ADR ruleset. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
+        "description": "Valideert een OpenAPI specificatie met de DON ADR ruleset. Standaard wordt ruleset 2.1 gebruikt; geef targetVersion \"2.0\" of \"2.1\" mee om een versie te kiezen. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).",
         "operationId": "validatorOpenAPIPost",
         "requestBody": {
           "content": {
@@ -440,7 +440,7 @@
             "type": "string"
           },
           "targetVersion": {
-            "description": "Doelversie voor conversie (momenteel 3.0 of 3.1).",
+            "description": "Doelversie. Voor conversie: 3.0 of 3.1. Voor validatie: 2.0 of 2.1.",
             "type": "string"
           }
         },

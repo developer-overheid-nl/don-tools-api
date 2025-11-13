@@ -216,8 +216,10 @@ paths:
       x-eov-operation-handler: controllers/ToolsController
   /v1/oas/validate:
     post:
-      description: "Valideert een OpenAPI specificatie met de DON ADR ruleset. Body:\
-        \ { oasUrl } of { oasBody } (stringified JSON of YAML)."
+      description: "Valideert een OpenAPI specificatie met de DON ADR ruleset. Standaard\
+        \ wordt ruleset 2.1 gebruikt; geef targetVersion \"2.0\" of \"2.1\" mee om\
+        \ een versie te kiezen. Body: { oasUrl } of { oasBody } (stringified JSON of\
+        \ YAML)."
       operationId: validatorOpenAPIPost
       requestBody:
         content:
@@ -305,7 +307,8 @@ components:
         oasUrl:
           type: string
         targetVersion:
-          description: Doelversie voor conversie (momenteel 3.0 of 3.1).
+          description: "Doelversie. Voor conversie: 3.0 of 3.1. Voor validatie: 2.0\
+            \ of 2.1."
           type: string
       type: object
     ModelsKeycloakClientResult:
