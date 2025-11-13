@@ -140,15 +140,9 @@ class ExpressServer {
       res.set("API-Version", this.schema.info.version);
       next();
     });
-    this.app.get("/openapi.json", (_req, res) => res.json(this.schema));
-    this.app.get("/login-redirect", (req, res) => {
-      res.status(200);
-      res.json(req.query);
-    });
-    this.app.get("/oauth2-redirect.html", (req, res) => {
-      res.status(200);
-      res.json(req.query);
-    });
+    const sendOpenApiSpec = (_req, res) => res.json(this.schema);
+    this.app.get("/openapi.json", sendOpenApiSpec);
+    this.app.get("/v1/openapi", sendOpenApiSpec);
     this.app.use(
       OpenApiValidator.middleware({
         apiSpec: this.schema,

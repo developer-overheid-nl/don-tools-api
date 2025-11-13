@@ -9,24 +9,24 @@
 const Controller = require("./Controller");
 const service = require("../services/ToolsService");
 
-const arazzo = async (request, response) => {
-  await Controller.handleRequest(request, response, service.arazzo);
+const arazzoMarkdown = async (request, response) => {
+  await Controller.handleRequest(request, response, service.arazzoMarkdown);
+};
+
+const arazzoMermaid = async (request, response) => {
+  await Controller.handleRequest(request, response, service.arazzoMermaid);
 };
 
 const convertOAS = async (request, response) => {
   await Controller.handleRequest(request, response, service.convertOAS);
 };
 
-const createBrunoCollection = async (request, response) => {
-  await Controller.handleRequest(request, response, service.createBrunoCollection);
-};
-
 const createPostmanCollection = async (request, response) => {
   await Controller.handleRequest(request, response, service.createPostmanCollection);
 };
 
-const dereferenceOAS = async (request, response) => {
-  await Controller.handleRequest(request, response, service.dereferenceOAS);
+const bundleOAS = async (request, response) => {
+  await Controller.handleRequest(request, response, service.bundleOAS);
 };
 
 const generateOAS = async (request, response) => {
@@ -42,11 +42,11 @@ const validatorOpenAPIPost = async (request, response) => {
 };
 
 module.exports = {
-  arazzo,
+  arazzoMarkdown,
+  arazzoMermaid,
   convertOAS,
-  createBrunoCollection,
   createPostmanCollection,
-  dereferenceOAS,
+  bundleOAS,
   generateOAS,
   untrustClient,
   validatorOpenAPIPost,

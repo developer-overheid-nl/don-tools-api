@@ -18,11 +18,11 @@ tags:
 - description: Conversies en hulpmiddelen
   name: Tools
 paths:
-  /v1/arazzo/parse:
+  /v1/arazzo/markdown:
     post:
-      description: "Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid.\
-        \ Body: { arazzoUrl|arazzoBody }"
-      operationId: arazzo
+      description: "Genereert alleen de Markdown-uitvoer van een Arazzo specificatie.\
+        \ Body: { oasUrl|oasBody }"
+      operationId: arazzoMarkdown
       requestBody:
         content:
           application/json:
@@ -31,9 +31,9 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/markdown:
               schema:
-                $ref: "#/components/schemas/ModelsArazzoVisualization"
+                type: string
           description: OK
           headers:
             API-Version:
@@ -48,7 +48,41 @@ paths:
       - apiKey: []
         clientCredentials:
         - tools
-      summary: Visualiseer Arazzo (POST)
+      summary: Arazzo Markdown (POST)
+      tags:
+      - Tools
+      x-eov-operation-handler: controllers/ToolsController
+  /v1/arazzo/mermaid:
+    post:
+      description: "Genereert alleen de Mermaid flowchart van een Arazzo specificatie.\
+        \ Body: { oasUrl|oasBody }"
+      operationId: arazzoMermaid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OASInput"
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+          headers:
+            API-Version:
+              description: De API-versie van de response
+              explode: false
+              schema:
+                type: string
+              style: simple
+        "404":
+          description: Not Found
+      security:
+      - apiKey: []
+        clientCredentials:
+        - tools
+      summary: Arazzo Mermaid (POST)
       tags:
       - Tools
       x-eov-operation-handler: controllers/ToolsController
@@ -85,40 +119,11 @@ paths:
       tags:
       - Tools
       x-eov-operation-handler: controllers/ToolsController
-  /v1/bruno/convert:
-    post:
-      description: "Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody\
-        \ } (stringified JSON of YAML)."
-      operationId: CreateBrunoCollection
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/OASInput"
-      responses:
-        "200":
-          description: OK
-          headers:
-            API-Version:
-              description: De API-versie van de response
-              explode: false
-              schema:
-                type: string
-              style: simple
-        "404":
-          description: Not Found
-      security:
-      - apiKey: []
-        clientCredentials:
-        - tools
-      summary: Maak Bruno-collectie (POST)
-      tags:
-      - Tools
-      x-eov-operation-handler: controllers/ToolsController
   /v1/oas/convert:
     post:
-      description: "Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of {\
-        \ oasBody } (stringified JSON of YAML)."
+      description: "Converteert OpenAPI naar de laatst ondersteunde versie (standaard\
+        \ 3.1). Meegegeven targetVersion (3.0 of 3.1) bepaalt het doel. Body: { oasUrl\
+        \ } of { oasBody } (stringified JSON of YAML)."
       operationId: ConvertOAS
       requestBody:
         content:
@@ -145,11 +150,11 @@ paths:
       tags:
       - Tools
       x-eov-operation-handler: controllers/ToolsController
-  /v1/oas/dereference:
+  /v1/oas/bundle:
     post:
-      description: "Haalt externe $ref verwijzingen op en levert één compleet OpenAPI\
-        \ document terug. Body: { oasUrl } of { oasBody }."
-      operationId: DereferenceOAS
+      description: "Bundelt een OpenAPI specificatie en lost externe verwijzingen\
+        \ op. Body: { oasUrl } of { oasBody }."
+      operationId: bundleOAS
       requestBody:
         content:
           application/json:
@@ -171,14 +176,14 @@ paths:
       - apiKey: []
         clientCredentials:
         - tools
-      summary: Dereference OpenAPI
+      summary: Bundle OpenAPI
       tags:
       - Tools
       x-eov-operation-handler: controllers/ToolsController
   /v1/oas/generate:
     post:
-      description: "Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of {\
-        \ oasBody } (stringified JSON of YAML)."
+      description: "Genereert een boilerplate OpenAPI specificatie op basis van JSON-invoer.\
+        \ Body: { oasUrl } of { oasBody } (stringified JSON)."
       operationId: GenerateOAS
       requestBody:
         content:
@@ -195,6 +200,10 @@ paths:
               schema:
                 type: string
               style: simple
+          content:
+            application/json:
+              schema:
+                type: object
         "404":
           description: Not Found
       security:
@@ -239,7 +248,7 @@ paths:
       tags:
       - Tools
       x-eov-operation-handler: controllers/ToolsController
-  /v1/postman/convert:
+  /v1/oas/postman:
     post:
       description: "Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl\
         \ } of { oasBody } (stringified JSON of YAML)."
@@ -289,20 +298,14 @@ components:
       example:
         oasUrl: oasUrl
         oasBody: oasBody
+        targetVersion: "3.1"
       properties:
         oasBody:
           type: string
         oasUrl:
           type: string
-      type: object
-    ModelsArazzoVisualization:
-      example:
-        mermaid: mermaid
-        markdown: markdown
-      properties:
-        markdown:
-          type: string
-        mermaid:
+        targetVersion:
+          description: Doelversie voor conversie (momenteel 3.0 of 3.1).
           type: string
       type: object
     ModelsKeycloakClientResult:
