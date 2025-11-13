@@ -141,8 +141,7 @@ class ExpressServer {
       next();
     });
     const sendOpenApiSpec = (_req, res) => res.json(this.schema);
-    this.app.get("/openapi.json", sendOpenApiSpec);
-    this.app.get("/v1/openapi", sendOpenApiSpec);
+    this.app.get("/v1/openapi.json", sendOpenApiSpec);
     this.app.use(
       OpenApiValidator.middleware({
         apiSpec: this.schema,
