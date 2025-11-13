@@ -10,7 +10,11 @@ const Service = require("./Service");
 const { fetchSpecification } = require("./RemoteSpecificationService");
 const logger = require("../logger");
 
-const RULESET_PATH = path.join(__dirname, "..", "rulesets", "adr-ruleset.yaml");
+const RULESET_FILES = {
+  "2.0": path.join(__dirname, "..", "rulesets", "ruleset_2.0.yaml"),
+  2.1: path.join(__dirname, "..", "rulesets", "ruleset_2.1.yaml"),
+};
+const DEFAULT_RULESET_VERSION = "2.1";
 
 const SEVERITY_LABELS = ["error", "warning", "info", "hint"];
 
@@ -28,7 +32,7 @@ const MEASURED_RULE_GROUPS = {
 
 const MEASURED_GROUP_KEYS = Array.from(new Set(Object.values(MEASURED_RULE_GROUPS)));
 
-let spectralInstancePromise;
+const spectralInstancePromises = new Map();
 
 const resolveRulesetExtendsEntry = (entry) => {
   if (Array.isArray(entry)) {
@@ -50,9 +54,16 @@ const resolveRulesetExtendsEntry = (entry) => {
   return entry;
 };
 
-const loadRulesetDefinition = async () => {
+const getRulesetPath = (version) => {
+  if (Object.hasOwn(RULESET_FILES, version)) {
+    return RULESET_FILES[version];
+  }
+  return RULESET_FILES[DEFAULT_RULESET_VERSION];
+};
+
+const loadRulesetDefinition = async (rulesetPath) => {
   try {
-    const contents = await fs.readFile(RULESET_PATH, "utf8");
+    const contents = await fs.readFile(rulesetPath, "utf8");
     const definition = jsYaml.load(contents);
     if (!definition || typeof definition !== "object") {
       throw new Error("Ruleset-bestand is leeg of ongeldig.");
@@ -94,21 +105,22 @@ const loadRulesetDefinition = async () => {
   }
 };
 
-const loadSpectral = async () => {
-  if (!spectralInstancePromise) {
-    spectralInstancePromise = (async () => {
+const loadSpectral = async (rulesetVersion) => {
+  if (!spectralInstancePromises.has(rulesetVersion)) {
+    const promise = (async () => {
       try {
+        const rulesetPath = getRulesetPath(rulesetVersion);
         const spectral = new Spectral();
-        const rulesetDefinition = await loadRulesetDefinition();
+        const rulesetDefinition = await loadRulesetDefinition(rulesetPath);
         const ruleset = new Ruleset(rulesetDefinition, {
           severity: "recommended",
-          source: RULESET_PATH,
+          source: rulesetPath,
         });
         spectral.setRuleset(ruleset);
         return spectral;
       } catch (error) {
-        logger.error(`Unable to load Spectral ruleset from ${RULESET_PATH}: ${error.message}`);
-        spectralInstancePromise = undefined;
+        logger.error(`[OasValidatorService] Unable to load Spectral ruleset (${rulesetVersion}): ${error.message}`);
+        spectralInstancePromises.delete(rulesetVersion);
         throw Service.rejectResponse(
           {
             message: "Kan het regels-bestand niet laden voor validatie.",
@@ -118,8 +130,9 @@ const loadSpectral = async () => {
         );
       }
     })();
+    spectralInstancePromises.set(rulesetVersion, promise);
   }
-  return spectralInstancePromise;
+  return spectralInstancePromises.get(rulesetVersion);
 };
 
 const resolveSpecificationInput = async (input) => {
@@ -233,9 +246,31 @@ const buildLintResult = (diagnostics) => {
   };
 };
 
+const normalizeRulesetVersion = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    value = value.toString();
+  }
+  if (typeof value !== "string") {
+    return DEFAULT_RULESET_VERSION;
+  }
+  const trimmed = value.trim();
+  if (trimmed === "2") {
+    return "2.0";
+  }
+  if (Object.hasOwn(RULESET_FILES, trimmed)) {
+    return trimmed;
+  }
+  return DEFAULT_RULESET_VERSION;
+};
+
+const resolveValidationSettings = (input) => ({
+  rulesetVersion: normalizeRulesetVersion(input?.targetVersion),
+});
+
 const validate = async (input) => {
   const { contents, source } = await resolveSpecificationInput(input);
-  const spectral = await loadSpectral();
+  const { rulesetVersion } = resolveValidationSettings(input);
+  const spectral = await loadSpectral(rulesetVersion);
   const document = new Document(contents, Parsers.Yaml, source);
   const parseDiagnostics = Array.isArray(document.diagnostics) ? document.diagnostics : [];
   const lintDiagnostics = await spectral.run(document, { ignoreUnknownFormat: false });
