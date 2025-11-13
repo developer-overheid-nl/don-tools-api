@@ -1,10 +1,10 @@
 /* eslint-disable no-unused-vars */
 const Service = require("./Service");
 const OasConversionService = require("./OasConversionService");
-const OasDereferenceService = require("./OasDereferenceService");
+const OasBundleService = require("./OasBundleService");
 const OasValidatorService = require("./OasValidatorService");
+const OasGeneratorService = require("./OasGeneratorService");
 const PostmanConversionService = require("./PostmanConversionService");
-const BrunoConversionService = require("./BrunoConversionService");
 const ArazzoVisualizationService = require("./ArazzoVisualizationService");
 const { KeycloakService, parseUntrustClientInput, translateKeycloakError } = require("./KeycloakService");
 const logger = require("../logger");
@@ -17,17 +17,12 @@ const logServiceError = (operation, error) => {
   logger.error(`[ToolsService] ${operation} failed: ${detail}${stack}`);
 };
 
-/**
- * Visualiseer Arazzo (POST)
- * Converteert een OpenAPI Arazzo specificatie naar Markdown en Mermaid. Body: { arazzoUrl|arazzoBody }
- *
- * arazzoInput ArazzoInput  (optional)
- * returns ModelsArazzoVisualization
- */
-// const arazzo = async ({ arazzoInput }) => {
-const arazzo = async (params) => {
+const CONTENT_TYPE_MARKDOWN = "text/markdown; charset=utf-8";
+const CONTENT_TYPE_TEXT = "text/plain; charset=utf-8";
+
+const handleArazzoVisualization = async ({ operationId, params, pick, contentType }) => {
   try {
-    const mockResult = await Service.applyMock("ToolsService", "arazzo", params);
+    const mockResult = await Service.applyMock("ToolsService", operationId, params);
     if (mockResult !== undefined) {
       if (mockResult.action === "reject") {
         throw mockResult.value;
@@ -36,9 +31,16 @@ const arazzo = async (params) => {
     }
     const requestPayload = Service.extractRequestBody(params);
     const visualization = await ArazzoVisualizationService.visualize(requestPayload);
-    return Service.successResponse(visualization);
+    const body = pick(visualization) || "";
+    return {
+      code: 200,
+      headers: {
+        "Content-Type": contentType,
+      },
+      payload: body,
+    };
   } catch (e) {
-    logServiceError("arazzo", e);
+    logServiceError(operationId, e);
     const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
     const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
@@ -52,8 +54,38 @@ const arazzo = async (params) => {
 };
 
 /**
+ * Arazzo Markdown (POST)
+ * Genereert alleen de Markdown-uitvoer van een Arazzo specificatie.
+ *
+ * arazzoInput ArazzoInput  (optional)
+ * no response value expected for this operation
+ */
+const arazzoMarkdown = async (params) =>
+  handleArazzoVisualization({
+    operationId: "arazzoMarkdown",
+    params,
+    pick: (visualization) => visualization.markdown,
+    contentType: CONTENT_TYPE_MARKDOWN,
+  });
+
+/**
+ * Arazzo Mermaid (POST)
+ * Genereert de Mermaid flowchart van een Arazzo specificatie.
+ *
+ * arazzoInput ArazzoInput  (optional)
+ * no response value expected for this operation
+ */
+const arazzoMermaid = async (params) =>
+  handleArazzoVisualization({
+    operationId: "arazzoMermaid",
+    params,
+    pick: (visualization) => visualization.mermaid,
+    contentType: CONTENT_TYPE_TEXT,
+  });
+
+/**
  * Converteer OpenAPI 3.0/3.1
- * Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
+ * Converteert standaard naar 3.1. Geef targetVersion (3.0 of 3.1) mee om een doelversie te forceren. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
  *
  * oASInput OASInput  (optional)
  * no response value expected for this operation
@@ -77,44 +109,6 @@ const convertOAS = async (params) => {
     };
   } catch (e) {
     logServiceError("convertOAS", e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
-  }
-};
-
-/**
- * Maak Bruno-collectie (POST)
- * Converteert OpenAPI naar Bruno ZIP. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
- *
- * oASInput OASInput  (optional)
- * no response value expected for this operation
- */
-// const createBrunoCollection = async ({ oASInput }) => {
-const createBrunoCollection = async (params) => {
-  try {
-    const mockResult = await Service.applyMock("ToolsService", "createBrunoCollection", params);
-    if (mockResult !== undefined) {
-      if (mockResult.action === "reject") {
-        throw mockResult.value;
-      }
-      return mockResult.value;
-    }
-    const requestPayload = Service.extractRequestBody(params);
-    const result = await BrunoConversionService.convert(requestPayload);
-    return {
-      code: 200,
-      headers: result.headers,
-      payload: result.rawBody,
-    };
-  } catch (e) {
-    logServiceError("createBrunoCollection", e);
     const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
     const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
@@ -166,16 +160,15 @@ const createPostmanCollection = async (params) => {
 };
 
 /**
- * Dereference OpenAPI
- * Haalt externe $ref verwijzingen op en levert één compleet OpenAPI document terug. Body: { oasUrl } of { oasBody }.
+ * Bundle OpenAPI
+ * Maakt één gebundeld OpenAPI document met opgeloste verwijzingen. Body: { oasUrl } of { oasBody }.
  *
  * oASInput OASInput  (optional)
  * no response value expected for this operation
  */
-// const dereferenceOAS = async ({ oASInput }) => {
-const dereferenceOAS = async (params) => {
+const bundleOAS = async (params) => {
   try {
-    const mockResult = await Service.applyMock("ToolsService", "dereferenceOAS", params);
+    const mockResult = await Service.applyMock("ToolsService", "bundleOAS", params);
     if (mockResult !== undefined) {
       if (mockResult.action === "reject") {
         throw mockResult.value;
@@ -183,14 +176,14 @@ const dereferenceOAS = async (params) => {
       return mockResult.value;
     }
     const requestPayload = Service.extractRequestBody(params);
-    const result = await OasDereferenceService.dereference(requestPayload);
+    const result = await OasBundleService.bundle(requestPayload);
     return {
       code: 200,
       headers: result.headers,
       payload: result.rawBody,
     };
   } catch (e) {
-    logServiceError("dereferenceOAS", e);
+    logServiceError("bundleOAS", e);
     const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
     const message = e?.message ? e.message : "Er is een fout opgetreden.";
     throw Service.rejectResponse(
@@ -205,7 +198,7 @@ const dereferenceOAS = async (params) => {
 
 /**
  * Generate OpenAPI
- * Zet OpenAPI 3.0 om naar 3.1 of andersom. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).
+ * Genereert een boilerplate OpenAPI document op basis van JSON-input. Body: { oasUrl } of { oasBody } (stringified JSON).
  *
  * oASInput OASInput  (optional)
  * no response value expected for this operation
@@ -220,7 +213,13 @@ const generateOAS = async (params) => {
       }
       return mockResult.value;
     }
-    return Service.successResponse(params);
+    const requestPayload = Service.extractRequestBody(params);
+    const result = await OasGeneratorService.generate(requestPayload);
+    return {
+      code: 200,
+      headers: result.headers,
+      payload: result.rawBody,
+    };
   } catch (e) {
     logServiceError("generateOAS", e);
     const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
@@ -314,11 +313,11 @@ const validatorOpenAPIPost = async (params) => {
 };
 
 module.exports = {
-  arazzo,
+  arazzoMarkdown,
+  arazzoMermaid,
   convertOAS,
-  createBrunoCollection,
   createPostmanCollection,
-  dereferenceOAS,
+  bundleOAS,
   generateOAS,
   untrustClient,
   validatorOpenAPIPost,
