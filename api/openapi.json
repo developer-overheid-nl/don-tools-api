@@ -72,15 +72,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Arazzo Markdown (POST)",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -125,15 +121,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Arazzo Mermaid (POST)",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -178,15 +170,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Maak client (POST)",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -224,15 +212,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Converteer OpenAPI 3.0/3.1",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -270,15 +254,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Bundle OpenAPI",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -323,15 +303,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Generate OpenAPI",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -376,15 +352,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Validate OpenAPI (POST)",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -422,15 +394,11 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": [
-              "tools"
-            ]
+            "clientCredentials": ["tools"]
           }
         ],
         "summary": "Maak Postman-collectie (POST)",
-        "tags": [
-          "Tools"
-        ],
+        "tags": ["Tools"],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     }

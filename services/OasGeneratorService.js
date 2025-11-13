@@ -324,9 +324,7 @@ const generate = async (input) => {
   try {
     config = parseGeneratorConfig(contents);
   } catch (error) {
-    logger.error(
-      `[OasGeneratorService] parseGeneratorConfig failed: ${error?.detail || error?.message || "unknown"}`,
-    );
+    logger.error(`[OasGeneratorService] parseGeneratorConfig failed: ${error?.detail || error?.message || "unknown"}`);
     throw error;
   }
 
