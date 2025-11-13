@@ -9,7 +9,7 @@ const parseEnvBoolean = (value) => {
 
 const config = {
   ROOT_DIR: __dirname,
-  URL_PORT: 8080,
+  URL_PORT: 1338,
   URL_PATH: "https://api.developer.overheid.nl",
   BASE_VERSION: "/tools/v1",
   CONTROLLER_DIRECTORY: path.join(__dirname, "controllers"),
