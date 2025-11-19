@@ -342,7 +342,9 @@ const buildMarkdown = (document, options = {}) => {
     if (inputs.length > 0) {
       lines.push("", "### Inputs");
       inputs.forEach((input) => {
-        formatInputDefinition(input.name, input.schema).forEach((line) => lines.push(line));
+        formatInputDefinition(input.name, input.schema).forEach((line) => {
+          lines.push(line);
+        });
       });
     }
     if (Array.isArray(workflow.parameters) && workflow.parameters.length > 0) {
@@ -372,11 +374,7 @@ const buildMarkdown = (document, options = {}) => {
           lines.push(`  - ${description}`);
         }
         const stepDescription = normalizeText(step.description);
-        if (
-          stepDescription &&
-          stepDescription !== summary &&
-          stepDescription !== description
-        ) {
+        if (stepDescription && stepDescription !== summary && stepDescription !== description) {
           lines.push(`  - ${stepDescription}`);
         }
         appendCriteriaLines(lines, step.successCriteria, "Succescriteria");
@@ -421,7 +419,10 @@ const buildMermaid = (document, options = {}) => {
       lines.push("end");
       return;
     }
-    const workflowKey = sanitizeMermaidId(workflow.workflowId || `workflow_${workflowIndex + 1}`, `workflow_${workflowIndex + 1}`);
+    const workflowKey = sanitizeMermaidId(
+      workflow.workflowId || `workflow_${workflowIndex + 1}`,
+      `workflow_${workflowIndex + 1}`,
+    );
     const nodeIds = steps.map((step, index) => {
       const stepKey = sanitizeMermaidId(step.stepId || `step_${index + 1}`, `step_${index + 1}`);
       return `${workflowKey}_${stepKey}`;
