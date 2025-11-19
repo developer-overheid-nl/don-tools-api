@@ -163,10 +163,171 @@ const normalizeText = (value) => {
   return value.trim();
 };
 
-const buildMarkdown = (document) => {
+const SOURCE_REF_PREFIX = "$sourceDescriptions.";
+const COMPONENT_INPUTS_PREFIX = "#/components/inputs/";
+const ALLOWED_METHODS = new Set(["get", "put", "post", "delete", "patch", "head", "options", "trace"]);
+
+const parseStepOperation = (value) => {
+  if (!value || typeof value !== "string") {
+    return { raw: "", operationId: "" };
+  }
+  if (!value.startsWith(SOURCE_REF_PREFIX)) {
+    return { raw: value, operationId: value };
+  }
+  const remainder = value.slice(SOURCE_REF_PREFIX.length);
+  const delimiterIndex = remainder.indexOf(".");
+  if (delimiterIndex === -1) {
+    return { raw: value, operationId: remainder };
+  }
+  return {
+    raw: value,
+    source: remainder.slice(0, delimiterIndex),
+    operationId: remainder.slice(delimiterIndex + 1),
+  };
+};
+
+const buildOperationLookup = (openapiDocument) => {
+  const lookup = new Map();
+  if (!openapiDocument || typeof openapiDocument !== "object") {
+    return lookup;
+  }
+  const paths = openapiDocument.paths;
+  if (!paths || typeof paths !== "object") {
+    return lookup;
+  }
+  Object.entries(paths).forEach(([pathKey, pathItem]) => {
+    if (!pathItem || typeof pathItem !== "object") {
+      return;
+    }
+    Object.entries(pathItem).forEach(([method, operation]) => {
+      if (!ALLOWED_METHODS.has(method) || !operation || typeof operation !== "object") {
+        return;
+      }
+      const operationId = operation.operationId;
+      if (!operationId) {
+        return;
+      }
+      lookup.set(operationId, {
+        method: method.toUpperCase(),
+        path: pathKey,
+        summary: normalizeText(operation.summary),
+        description: normalizeText(operation.description),
+        tags: Array.isArray(operation.tags) ? operation.tags : undefined,
+      });
+    });
+  });
+  return lookup;
+};
+
+const describeSchemaType = (schema) => {
+  if (!schema || typeof schema !== "object") {
+    return "";
+  }
+  const parts = [];
+  if (schema.type) {
+    parts.push(schema.type + (schema.format ? ` (${schema.format})` : ""));
+  } else if (schema.format) {
+    parts.push(schema.format);
+  }
+  if (schema.enum) {
+    parts.push(`mogelijk: ${schema.enum.join(", ")}`);
+  }
+  return parts.join(" | ");
+};
+
+const formatInputDefinition = (name, schema) => {
+  const lines = [`- **${name}**`];
+  const description = normalizeText(schema?.description);
+  const typeInfo = describeSchemaType(schema);
+  if (description || typeInfo) {
+    const details = [description, typeInfo ? `type: ${typeInfo}` : undefined].filter(Boolean).join(" | ");
+    lines.push(`  - ${details}`);
+  }
+  if (schema && typeof schema === "object" && schema.properties && typeof schema.properties === "object") {
+    lines.push("  - Velden:");
+    Object.entries(schema.properties).forEach(([propName, propSchema]) => {
+      const propType = describeSchemaType(propSchema);
+      const propDescription = normalizeText(propSchema?.description);
+      const suffix = [propType, propDescription].filter(Boolean).join(" — ");
+      lines.push(`    - ${propName}${suffix ? ` — ${suffix}` : ""}`);
+    });
+  }
+  return lines;
+};
+
+const resolveInputs = (inputs, components) => {
+  if (!inputs) {
+    return [];
+  }
+  if (inputs.$ref && typeof inputs.$ref === "string") {
+    if (!inputs.$ref.startsWith(COMPONENT_INPUTS_PREFIX)) {
+      return [];
+    }
+    const refName = inputs.$ref.slice(COMPONENT_INPUTS_PREFIX.length);
+    const definition = components?.[refName];
+    if (!definition) {
+      return [];
+    }
+    return [{ name: refName, schema: definition }];
+  }
+  if (typeof inputs === "object") {
+    const inlineName = inputs.name || inputs.title || "inputs";
+    return [{ name: inlineName, schema: inputs }];
+  }
+  return [];
+};
+
+const formatParameterValue = (value) => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === undefined) {
+    return "onbekend";
+  }
+  return JSON.stringify(value);
+};
+
+const appendCriteriaLines = (lines, items, label) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return;
+  }
+  lines.push(`  - ${label}:`);
+  items.forEach((criteria) => {
+    const condition = normalizeText(criteria?.condition) || "(geen conditie)";
+    const detail = normalizeText(criteria?.description);
+    lines.push(`    - ${condition}${detail ? ` — ${detail}` : ""}`);
+  });
+};
+
+const appendOutputs = (lines, outputs) => {
+  if (!outputs || typeof outputs !== "object" || Object.keys(outputs).length === 0) {
+    return;
+  }
+  lines.push("  - Outputs:");
+  Object.entries(outputs).forEach(([key, value]) => {
+    lines.push(`    - ${key}: ${JSON.stringify(value)}`);
+  });
+};
+
+const describeStepOperation = (step, operationLookup) => {
+  const parsedOperation = parseStepOperation(step.operationId);
+  const operationDetails = parsedOperation.operationId ? operationLookup.get(parsedOperation.operationId) : undefined;
+  const suffixParts = [];
+  if (operationDetails?.method && operationDetails.path) {
+    suffixParts.push(`${operationDetails.method} ${operationDetails.path}`);
+  }
+  if (parsedOperation.operationId) {
+    suffixParts.push(parsedOperation.operationId);
+  }
+  const suffix = suffixParts.length > 0 ? ` (${suffixParts.join(" · ")})` : "";
+  return { parsedOperation, operationDetails, suffix };
+};
+
+const buildMarkdown = (document, options = {}) => {
   const lines = [];
   const title = normalizeText(document.info?.title) || "Arazzo Workflows";
   const description = normalizeText(document.info?.description);
+  const operationLookup = buildOperationLookup(options.openapi);
   lines.push(`# ${title}`);
   if (description) {
     lines.push("", description);
@@ -177,22 +338,50 @@ const buildMarkdown = (document) => {
     if (workflow.description) {
       lines.push("", workflow.description.trim());
     }
+    const inputs = resolveInputs(workflow.inputs, document.components?.inputs);
+    if (inputs.length > 0) {
+      lines.push("", "### Inputs");
+      inputs.forEach((input) => {
+        formatInputDefinition(input.name, input.schema).forEach((line) => lines.push(line));
+      });
+    }
+    if (Array.isArray(workflow.parameters) && workflow.parameters.length > 0) {
+      lines.push("", "### Parameters");
+      workflow.parameters.forEach((parameter) => {
+        const location = parameter.in || "parameter";
+        const name = parameter.name || "naamloos";
+        const value = formatParameterValue(parameter.value);
+        lines.push(`- ${name} (${location}) = ${value}`);
+        if (parameter.description) {
+          lines.push(`  - ${parameter.description.trim()}`);
+        }
+      });
+    }
     if (Array.isArray(workflow.steps) && workflow.steps.length > 0) {
       lines.push("", "### Stappen");
       workflow.steps.forEach((step, index) => {
         const stepLabel = step.stepId || `Stap ${index + 1}`;
-        const operation = step.operationId ? ` (${step.operationId})` : "";
-        lines.push(`- **${stepLabel}${operation}**`);
-        if (step.description) {
-          lines.push(`  - ${step.description.trim()}`);
+        const { operationDetails, suffix } = describeStepOperation(step, operationLookup);
+        lines.push(`- **${stepLabel}${suffix}**`);
+        const summary = operationDetails?.summary;
+        const description = operationDetails?.description;
+        if (summary) {
+          lines.push(`  - ${summary}`);
         }
-        const outputs = step.outputs;
-        if (outputs && typeof outputs === "object" && Object.keys(outputs).length > 0) {
-          lines.push("  - Outputs:");
-          Object.entries(outputs).forEach(([key, value]) => {
-            lines.push(`    - ${key}: ${JSON.stringify(value)}`);
-          });
+        if (description && description !== summary) {
+          lines.push(`  - ${description}`);
         }
+        const stepDescription = normalizeText(step.description);
+        if (
+          stepDescription &&
+          stepDescription !== summary &&
+          stepDescription !== description
+        ) {
+          lines.push(`  - ${stepDescription}`);
+        }
+        appendCriteriaLines(lines, step.successCriteria, "Succescriteria");
+        appendCriteriaLines(lines, step.failureCriteria, "Faalcriteria");
+        appendOutputs(lines, step.outputs);
       });
     }
   });
@@ -206,31 +395,49 @@ const escapeMermaidLabel = (value) => {
   return String(value).replace(/"/g, '\\"');
 };
 
-const buildMermaidForWorkflow = (workflow) => {
-  const lines = ["flowchart TD"];
-  const steps = Array.isArray(workflow.steps) ? workflow.steps : [];
-  if (steps.length === 0) {
-    lines.push('    EmptyWorkflow["Geen stappen gedefinieerd"]');
-    return lines.join("\n");
+const sanitizeMermaidId = (value, fallback) => {
+  if (typeof value !== "string" || value.trim() === "") {
+    return fallback;
   }
-  const nodeIds = steps.map((step, index) => {
-    const workflowKey = workflow.workflowId || `wf${Math.max(index, 1)}`;
-    return `${workflowKey}_${step.stepId || index + 1}`.replace(/[^a-zA-Z0-9_]/g, "_");
-  });
-  steps.forEach((step, index) => {
-    const label =
-      escapeMermaidLabel(step.stepId || `Stap ${index + 1}`) +
-      (step.operationId ? ` (${escapeMermaidLabel(step.operationId)})` : "");
-    lines.push(`    ${nodeIds[index]}["${label}"]`);
-  });
-  for (let i = 0; i < nodeIds.length - 1; i += 1) {
-    lines.push(`    ${nodeIds[i]} --> ${nodeIds[i + 1]}`);
+  const sanitized = value.replace(/[^a-zA-Z0-9_]/g, "_");
+  if (!sanitized) {
+    return fallback;
   }
-  return lines.join("\n");
+  if (/^[0-9]/.test(sanitized)) {
+    return `S_${sanitized}`;
+  }
+  return sanitized;
 };
 
-const buildMermaid = (document) => {
-  return document.workflows.map((workflow) => buildMermaidForWorkflow(workflow)).join("\n\n");
+const buildMermaid = (document, options = {}) => {
+  const operationLookup = buildOperationLookup(options.openapi);
+  const lines = ["flowchart TD"];
+  document.workflows.forEach((workflow, workflowIndex) => {
+    const workflowTitle = normalizeText(workflow.summary) || workflow.workflowId || `Workflow ${workflowIndex + 1}`;
+    lines.push("", `subgraph "${escapeMermaidLabel(workflowTitle)}"`);
+    const steps = Array.isArray(workflow.steps) ? workflow.steps : [];
+    if (steps.length === 0) {
+      lines.push('    EmptyWorkflow["Geen stappen gedefinieerd"]');
+      lines.push("end");
+      return;
+    }
+    const workflowKey = sanitizeMermaidId(workflow.workflowId || `workflow_${workflowIndex + 1}`, `workflow_${workflowIndex + 1}`);
+    const nodeIds = steps.map((step, index) => {
+      const stepKey = sanitizeMermaidId(step.stepId || `step_${index + 1}`, `step_${index + 1}`);
+      return `${workflowKey}_${stepKey}`;
+    });
+    steps.forEach((step, index) => {
+      const stepLabel = step.stepId || `Stap ${index + 1}`;
+      const { suffix } = describeStepOperation(step, operationLookup);
+      const label = escapeMermaidLabel(`${stepLabel}${suffix}`);
+      lines.push(`    ${nodeIds[index]}["${label}"]`);
+    });
+    for (let i = 0; i < nodeIds.length - 1; i += 1) {
+      lines.push(`    ${nodeIds[i]} --> ${nodeIds[i + 1]}`);
+    }
+    lines.push("end");
+  });
+  return lines.join("\n");
 };
 
 const visualize = async (input) => {
@@ -244,14 +451,17 @@ const visualize = async (input) => {
     );
   }
   let document;
+  let parsed;
   try {
-    let parsed;
-    try {
-      parsed = jsYaml.load(resolved.contents);
-    } catch {
-      parsed = undefined;
-    }
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.arazzo) {
+    parsed = jsYaml.load(resolved.contents);
+  } catch {
+    parsed = undefined;
+  }
+  const isObject = parsed && typeof parsed === "object" && !Array.isArray(parsed);
+  const isArazzoSpecification = Boolean(isObject && parsed.arazzo);
+  const openapiDocument = isObject && !isArazzoSpecification ? parsed : undefined;
+  try {
+    if (isArazzoSpecification) {
       document = await loadArazzoDocument(resolved.contents);
     } else {
       document = await generateArazzoFromOpenApi(resolved.contents);
@@ -274,8 +484,8 @@ const visualize = async (input) => {
     );
   }
   return {
-    markdown: buildMarkdown(document),
-    mermaid: buildMermaid(document),
+    markdown: buildMarkdown(document, { openapi: openapiDocument }),
+    mermaid: buildMermaid(document, { openapi: openapiDocument }),
   };
 };
 
