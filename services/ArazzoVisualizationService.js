@@ -696,9 +696,6 @@ const convertInputToArazzo = async (input) => {
   }
 };
 
-/**
- * Specifiek pad: neem dit ALTIJD als OpenAPI en genereer Arazzo.
- */
 const convertOasInputToArazzo = async (input) => {
   const resolved = await resolveOasInput(input);
   const contents = typeof resolved.contents === "string" ? resolved.contents.trim() : "";
