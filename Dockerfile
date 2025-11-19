@@ -1,21 +1,14 @@
-FROM golang:latest
-
-# Node.js + npm for npx-based tools used by services
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends nodejs npm ca-certificates && \
-    npm install -g openapi-to-bruno openapi-to-postmanv2 @stoplight/spectral-cli && \
-    npm cache clean --force && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM node:lts-alpine AS runtime
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
-RUN go mod download
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
 
+# Copy source
 COPY . .
-ENV GIN_MODE=release
-RUN go build -o main ./cmd/main.go
 
-EXPOSE 1338
+EXPOSE 8080
 
-CMD ["./main"]
+CMD ["node", "index.js"]

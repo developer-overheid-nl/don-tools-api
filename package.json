@@ -1,0 +1,40 @@
+{
+  "name": "tools-api-v1",
+  "version": "1.0.0",
+  "description": "API van het Tools (apis.developer.overheid.nl)",
+  "main": "index.js",
+  "scripts": {
+    "prestart": "npm install",
+    "start": "node index.js",
+    "start-mock": "USE_MOCKS=true node index.js",
+    "lint": "biome lint .",
+    "format": "biome format --write ."
+  },
+  "keywords": [
+    "openapi-generator",
+    "openapi"
+  ],
+  "license": "Unlicense",
+  "private": true,
+  "dependencies": {
+    "@redocly/cli": "^2.11.0",
+    "@stoplight/spectral-parsers": "^1.0.5",
+    "@stoplight/spectral-rulesets": "^1.22.0",
+    "@stoplight/spectral-runtime": "^1.1.4",
+    "body-parser": "^2.2.0",
+    "case-anything": "^3.1.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-openapi-validator": "^5.6.0",
+    "js-yaml": "^4.1.0",
+    "jszip": "^3.10.1",
+    "openapi-to-postmanv2": "^5.3.4",
+    "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.4",
+    "chai": "^6.2.0",
+    "chai-as-promised": "^8.0.2"
+  }
+}
