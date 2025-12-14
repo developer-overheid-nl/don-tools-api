@@ -11,14 +11,27 @@ const logger = require("../logger");
 
 const keycloakService = KeycloakService.fromEnv();
 
+const CONTENT_TYPE_MARKDOWN = "text/markdown; charset=utf-8";
+const CONTENT_TYPE_TEXT = "text/plain; charset=utf-8";
+
+const normalizeError = (error) => {
+  if (Service.isErrorResponse(error)) {
+    const status = typeof error.code === "number" ? error.code : 400;
+    const message = error.error?.message || "Er is een fout opgetreden.";
+    const detail = error.error?.detail || message;
+    return { status, message, detail };
+  }
+  const status = typeof error?.status === "number" && error.status > 0 ? error.status : 400;
+  const message = error?.message || "Er is een fout opgetreden.";
+  const detail = error?.detail || message;
+  return { status, message, detail };
+};
+
 const logServiceError = (operation, error) => {
-  const detail = error?.detail || error?.message || "unknown error";
+  const { detail } = normalizeError(error);
   const stack = error?.stack ? ` stack=${error.stack}` : "";
   logger.error(`[ToolsService] ${operation} failed: ${detail}${stack}`);
 };
-
-const CONTENT_TYPE_MARKDOWN = "text/markdown; charset=utf-8";
-const CONTENT_TYPE_TEXT = "text/plain; charset=utf-8";
 
 const handleArazzoVisualization = async ({ operationId, params, pick, contentType }) => {
   try {
@@ -41,15 +54,8 @@ const handleArazzoVisualization = async ({ operationId, params, pick, contentTyp
     };
   } catch (e) {
     logServiceError(operationId, e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
+    const { status, message, detail } = normalizeError(e);
+    throw Service.rejectResponse({ message, detail }, status);
   }
 };
 
@@ -109,15 +115,8 @@ const convertOAS = async (params) => {
     };
   } catch (e) {
     logServiceError("convertOAS", e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
+    const { status, message, detail } = normalizeError(e);
+    throw Service.rejectResponse({ message, detail }, status);
   }
 };
 
@@ -147,15 +146,8 @@ const createPostmanCollection = async (params) => {
     };
   } catch (e) {
     logServiceError("createPostmanCollection", e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
+    const { status, message, detail } = normalizeError(e);
+    throw Service.rejectResponse({ message, detail }, status);
   }
 };
 
@@ -184,15 +176,8 @@ const bundleOAS = async (params) => {
     };
   } catch (e) {
     logServiceError("bundleOAS", e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
+    const { status, message, detail } = normalizeError(e);
+    throw Service.rejectResponse({ message, detail }, status);
   }
 };
 
@@ -222,15 +207,8 @@ const generateOAS = async (params) => {
     };
   } catch (e) {
     logServiceError("generateOAS", e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
+    const { status, message, detail } = normalizeError(e);
+    throw Service.rejectResponse({ message, detail }, status);
   }
 };
 
@@ -300,15 +278,8 @@ const validatorOpenAPIPost = async (params) => {
     return Service.successResponse(result);
   } catch (e) {
     logServiceError("validatorOpenAPIPost", e);
-    const status = typeof e.status === "number" && e.status > 0 ? e.status : 400;
-    const message = e?.message ? e.message : "Er is een fout opgetreden.";
-    throw Service.rejectResponse(
-      {
-        message,
-        detail: e.detail || message,
-      },
-      status,
-    );
+    const { status, message, detail } = normalizeError(e);
+    throw Service.rejectResponse({ message, detail }, status);
   }
 };
 
