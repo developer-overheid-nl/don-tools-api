@@ -37,30 +37,57 @@ const normalizeErrorDetail = (error) => {
   return parts.join(" ").trim() || "Onbekende netwerkfout";
 };
 
-const fetchSpecification = async (url, { errorMessage = DEFAULT_ERROR_MESSAGE } = {}) => {
+const doFetch = async (url, { origin }) => {
   const { options, cleanup, timeout } = buildFetchOptions(url);
   try {
+    const headers = {};
+    if (origin) {
+      headers.Origin = origin;
+    }
+    options.headers = headers;
     const response = await fetch(url, options);
     if (!response.ok) {
-      throw new Error(`Server gaf status ${response.status}`);
+      const preview = await response.text().catch(() => "");
+      const trimmed = preview ? preview.slice(0, 200) : "";
+      throw new Error(`Server gaf status ${response.status}${trimmed ? `: ${trimmed}` : ""}`);
     }
     return await response.text();
   } catch (error) {
-    const detail = normalizeErrorDetail(error);
-    logger.error(
-      `[RemoteSpecificationService] fetch failed for ${url}: ${detail}${error?.stack ? ` stack=${error.stack}` : ""}`,
-    );
-    throw Service.rejectResponse(
-      {
-        message: errorMessage,
-        detail,
-        timeout,
-      },
-      400,
-    );
+    error.timeout = timeout;
+    throw error;
   } finally {
     cleanup();
   }
+};
+
+const fetchSpecification = async (url, { errorMessage = DEFAULT_ERROR_MESSAGE } = {}) => {
+  const origin = "https://developer.overheid.nl";
+  const attempts = origin ? [{ origin }, { origin: undefined }] : [{ origin: undefined }];
+  let lastError;
+  for (const attempt of attempts) {
+    try {
+      return await doFetch(url, attempt);
+    } catch (error) {
+      lastError = error;
+      const detail = normalizeErrorDetail(error);
+      logger.error(
+        `[RemoteSpecificationService] fetch failed for ${url} (${attempt.origin ? "with" : "without"} Origin): ${detail}${
+          error?.stack ? ` stack=${error.stack}` : ""
+        }`,
+      );
+      // continue to next attempt
+    }
+  }
+
+  const detail = normalizeErrorDetail(lastError);
+  throw Service.rejectResponse(
+    {
+      message: errorMessage,
+      detail,
+      timeout: lastError?.timeout,
+    },
+    400,
+  );
 };
 
 module.exports = {
