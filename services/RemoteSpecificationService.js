@@ -3,10 +3,19 @@ const Service = require("./Service");
 const logger = require("../logger");
 
 const DEFAULT_ERROR_MESSAGE = "Het ophalen van de specificatie is mislukt.";
+const DEFAULT_TIMEOUT_MS = 45000;
+
+const resolveTimeoutMs = () => {
+  const envValue = Number(process.env.OAS_FETCH_TIMEOUT_MS);
+  if (Number.isFinite(envValue) && envValue > 0) {
+    return envValue;
+  }
+  return DEFAULT_TIMEOUT_MS;
+};
 
 const buildFetchOptions = (url) => {
   const controller = new AbortController();
-  const timeout = 15000;
+  const timeout = resolveTimeoutMs();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   const options = {
     signal: controller.signal,
