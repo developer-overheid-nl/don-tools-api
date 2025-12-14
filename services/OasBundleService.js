@@ -49,17 +49,101 @@ const deriveDocumentName = (doc, source) => {
   return DEFAULT_FILENAME;
 };
 
+const escapeJsonPointer = (segment) => segment.replace(/~/g, "~0").replace(/\//g, "~1");
+
+const buildJsonPointer = (path) => {
+  if (!Array.isArray(path) || path.length === 0) {
+    return "#/";
+  }
+  return `#/${path.map((part) => escapeJsonPointer(String(part))).join("/")}`;
+};
+
+const findComponentPointer = (path) => {
+  if (!Array.isArray(path)) {
+    return null;
+  }
+  for (let i = 0; i < path.length; i += 1) {
+    const segment = path[i];
+    if (segment === "components" && typeof path[i + 1] === "string" && typeof path[i + 2] === "string") {
+      return `#/components/${escapeJsonPointer(path[i + 1])}/${escapeJsonPointer(path[i + 2])}`;
+    }
+    if (segment === "definitions" && typeof path[i + 1] === "string") {
+      return `#/definitions/${escapeJsonPointer(path[i + 1])}`;
+    }
+  }
+  return null;
+};
+
+const decycleDocument = (value) => {
+  const stack = new WeakSet();
+  const pointers = new WeakMap();
+  const componentPointers = new WeakMap();
+  const bubbleKeys = new Set(["properties"]);
+
+  const visit = (node, path, parentKey) => {
+    if (!node || typeof node !== "object") {
+      return node;
+    }
+    const existingPointer = pointers.get(node);
+    if (stack.has(node)) {
+      const preferredRef = componentPointers.get(node) || existingPointer || buildJsonPointer(path);
+      return { __circularRef: preferredRef, __bubble: bubbleKeys.has(parentKey) };
+    }
+
+    const pointer = existingPointer || buildJsonPointer(path);
+    pointers.set(node, pointer);
+    const componentPointer = componentPointers.get(node) || findComponentPointer(path);
+    if (componentPointer) {
+      componentPointers.set(node, componentPointer);
+    }
+    stack.add(node);
+
+    if (Array.isArray(node)) {
+      const copy = node.map((item, index) => visit(item, [...path, index], index.toString()));
+      const bubbleEntry = copy.find((entry) => entry && entry.__circularRef && entry.__bubble);
+      stack.delete(node);
+      if (bubbleEntry) {
+        return { $ref: bubbleEntry.__circularRef };
+      }
+      return copy.map((entry) => (entry && entry.__circularRef ? { $ref: entry.__circularRef } : entry));
+    }
+
+    const copy = {};
+    let bubbleRef;
+    Object.entries(node).forEach(([key, child]) => {
+      const processed = visit(child, [...path, key], key);
+      if (processed && processed.__circularRef) {
+        if (processed.__bubble) {
+          bubbleRef = processed.__circularRef;
+        } else {
+          copy[key] = { $ref: processed.__circularRef };
+        }
+      } else {
+        copy[key] = processed;
+      }
+    });
+    stack.delete(node);
+    if (bubbleRef) {
+      return { $ref: bubbleRef };
+    }
+    return copy;
+  };
+
+  return visit(value, [], "");
+};
+
 const convertToPreferredFormat = (doc, preferredExt, baseName) => {
+  const serializableDoc = decycleDocument(doc);
   const targetName = baseName && baseName.length > 0 ? baseName : DEFAULT_FILENAME;
   if ([".yaml", ".yml"].includes(String(preferredExt).toLowerCase())) {
-    const yaml = jsYaml.dump(doc, { lineWidth: -1 });
+    const yaml = jsYaml.dump(serializableDoc, { lineWidth: -1 });
     return {
       buffer: Buffer.from(yaml, "utf8"),
       filename: `${targetName}.yaml`,
       contentType: "application/yaml",
     };
   }
-  const json = JSON.stringify(doc, null, 2);
+  const json = JSON.stringify(serializableDoc, null, 2);
   return {
     buffer: Buffer.from(json, "utf8"),
     filename: `${targetName}.json`,
