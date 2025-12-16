@@ -1,13 +1,18 @@
+const fs = require("node:fs/promises");
+const os = require("node:os");
 const path = require("node:path");
 const { URL } = require("node:url");
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 const jsYaml = require("js-yaml");
-const { bundleFromString, createConfig } = require("@redocly/openapi-core");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
 const { sanitizeFileName } = require("../utils/fileName");
 const logger = require("../logger");
 
 const DEFAULT_FILENAME = "openapi";
+const REDOCLY_BIN = require.resolve("@redocly/cli/bin/cli");
+const execFileAsync = promisify(execFile);
 
 const guessPreferredExtension = (contents) => {
   if (typeof contents !== "string") {
@@ -49,125 +54,18 @@ const deriveDocumentName = (doc, source) => {
   return DEFAULT_FILENAME;
 };
 
-const escapeJsonPointer = (segment) => segment.replace(/~/g, "~0").replace(/\//g, "~1");
-
-const buildJsonPointer = (path) => {
-  if (!Array.isArray(path) || path.length === 0) {
-    return "#/";
-  }
-  return `#/${path.map((part) => escapeJsonPointer(String(part))).join("/")}`;
-};
-
-const findComponentPointer = (path) => {
-  if (!Array.isArray(path)) {
-    return null;
-  }
-  for (let i = 0; i < path.length; i += 1) {
-    const segment = path[i];
-    if (segment === "components" && typeof path[i + 1] === "string" && typeof path[i + 2] === "string") {
-      return `#/components/${escapeJsonPointer(path[i + 1])}/${escapeJsonPointer(path[i + 2])}`;
-    }
-    if (segment === "definitions" && typeof path[i + 1] === "string") {
-      return `#/definitions/${escapeJsonPointer(path[i + 1])}`;
-    }
-  }
-  return null;
-};
-
-const decycleDocument = (value) => {
-  const stack = new WeakSet();
-  const pointers = new WeakMap();
-  const componentPointers = new WeakMap();
-  const bubbleKeys = new Set(["properties"]);
-
-  const visit = (node, path, parentKey) => {
-    if (!node || typeof node !== "object") {
-      return node;
-    }
-    const existingPointer = pointers.get(node);
-    if (stack.has(node)) {
-      const preferredRef = componentPointers.get(node) || existingPointer || buildJsonPointer(path);
-      return { __circularRef: preferredRef, __bubble: bubbleKeys.has(parentKey) };
-    }
-
-    const pointer = existingPointer || buildJsonPointer(path);
-    pointers.set(node, pointer);
-    const componentPointer = componentPointers.get(node) || findComponentPointer(path);
-    if (componentPointer) {
-      componentPointers.set(node, componentPointer);
-    }
-    stack.add(node);
-
-    if (Array.isArray(node)) {
-      const copy = node.map((item, index) => visit(item, [...path, index], index.toString()));
-      const bubbleEntry = copy.find((entry) => entry && entry.__circularRef && entry.__bubble);
-      stack.delete(node);
-      if (bubbleEntry) {
-        return { $ref: bubbleEntry.__circularRef };
-      }
-      return copy.map((entry) => (entry && entry.__circularRef ? { $ref: entry.__circularRef } : entry));
-    }
-
-    const copy = {};
-    let bubbleRef;
-    Object.entries(node).forEach(([key, child]) => {
-      const processed = visit(child, [...path, key], key);
-      if (processed && processed.__circularRef) {
-        if (processed.__bubble) {
-          bubbleRef = processed.__circularRef;
-        } else {
-          copy[key] = { $ref: processed.__circularRef };
-        }
-      } else {
-        copy[key] = processed;
-      }
-    });
-    stack.delete(node);
-    if (bubbleRef) {
-      return { $ref: bubbleRef };
-    }
-    return copy;
-  };
-
-  return visit(value, [], "");
-};
-
-const convertToPreferredFormat = (doc, preferredExt, baseName) => {
-  const serializableDoc = decycleDocument(doc);
-  const targetName = baseName && baseName.length > 0 ? baseName : DEFAULT_FILENAME;
-  if ([".yaml", ".yml"].includes(String(preferredExt).toLowerCase())) {
-    const yaml = jsYaml.dump(serializableDoc, { lineWidth: -1 });
-    return {
-      buffer: Buffer.from(yaml, "utf8"),
-      filename: `${targetName}.yaml`,
-      contentType: "application/yaml",
-    };
-  }
-  const json = JSON.stringify(serializableDoc, null, 2);
-  return {
-    buffer: Buffer.from(json, "utf8"),
-    filename: `${targetName}.json`,
-    contentType: "application/json",
-  };
-};
-
-let configPromise;
-const getRedoclyConfig = () => {
-  if (!configPromise) {
-    configPromise = createConfig({ extends: ["recommended"] });
-  }
-  return configPromise;
-};
-
-const normalizeAbsoluteRef = (source) => {
-  if (typeof source !== "string" || source === "request-body") {
-    return undefined;
-  }
-  try {
-    return new URL(source).toString();
-  } catch {
-    return undefined;
-  }
+const runRedoclyBundle = async (inputPath, outputPath, ext) => {
+  const args = [
+    REDOCLY_BIN,
+    "bundle",
+    inputPath,
+    "--output",
+    outputPath,
+    "--ext",
+    ext,
+    "--dereferenced",
+  ];
+  return execFileAsync(process.execPath, args, { maxBuffer: 20 * 1024 * 1024 });
 };
 
 const bundle = async (input) => {
@@ -182,20 +80,38 @@ const bundle = async (input) => {
     );
   }
 
-  const config = await getRedoclyConfig();
-  let bundled;
+  let tmpDir;
+  const inputExt = guessPreferredExtension(contents);
+  const inputPath = () => path.join(tmpDir, `input${inputExt}`);
+  const outputPath = (ext) => path.join(tmpDir, `bundle.${ext}`);
+
+  let bundledText;
+  let document;
+  let outputExt = "json";
   try {
-    bundled = await bundleFromString({
-      source: contents,
-      absoluteRef: normalizeAbsoluteRef(resolved.source),
-      config,
-      dereference: true,
-      keepUrlRefs: false,
-    });
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oas-bundle-"));
+    await fs.writeFile(inputPath(), contents, "utf8");
+    try {
+      await runRedoclyBundle(inputPath(), outputPath("json"), "json");
+      bundledText = await fs.readFile(outputPath("json"), "utf8");
+      document = JSON.parse(bundledText);
+    } catch (jsonError) {
+      const errText = `${jsonError?.stderr || ""}${jsonError?.stdout || ""}${jsonError?.message || ""}`;
+      const hasCircular = errText.toLowerCase().includes("circular reference");
+      if (!hasCircular) {
+        throw jsonError;
+      }
+      logger.warn("[OasBundleService] JSON bundle failed due to circular refs, retrying with YAML", {
+        message: jsonError?.message,
+      });
+      outputExt = "yaml";
+      await runRedoclyBundle(inputPath(), outputPath("yaml"), "yaml");
+      bundledText = await fs.readFile(outputPath("yaml"), "utf8");
+      document = jsYaml.load(bundledText);
+    }
   } catch (error) {
-    logger.error("[OasBundleService] bundle failed", {
+    logger.error("[OasBundleService] bundle failed via redocly CLI", {
       message: error?.message,
-      detail: error?.detail,
       stack: error?.stack,
     });
     const status = typeof error?.status === "number" && error.status >= 400 ? error.status : 400;
@@ -206,9 +122,16 @@ const bundle = async (input) => {
       },
       status,
     );
+  } finally {
+    if (tmpDir) {
+      try {
+        await fs.rm(tmpDir, { recursive: true, force: true });
+      } catch {
+        // ignore cleanup errors
+      }
+    }
   }
 
-  const document = bundled?.bundle?.parsed;
   if (!document || typeof document !== "object" || Array.isArray(document)) {
     throw Service.rejectResponse(
       {
@@ -218,15 +141,10 @@ const bundle = async (input) => {
     );
   }
 
-  if (Array.isArray(bundled?.problems) && bundled.problems.length > 0) {
-    logger.warn("[OasBundleService] bundle reported problems", {
-      problems: bundled.problems.slice(0, 5),
-    });
-  }
-
-  const preferredExt = guessPreferredExtension(contents);
   const docName = deriveDocumentName(document, resolved.source);
-  const { buffer, filename, contentType } = convertToPreferredFormat(document, preferredExt, docName);
+  const buffer = Buffer.from(bundledText, "utf8");
+  const filename = `${docName}.${outputExt}`;
+  const contentType = outputExt === "json" ? "application/json" : "application/yaml";
 
   return {
     headers: {
