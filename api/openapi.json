@@ -530,6 +530,7 @@
           "score": 6,
           "failures": 0,
           "successes": true,
+          "rulesetVersion": "2.1",
           "messages": [
             {
               "severity": "severity",
@@ -602,6 +603,10 @@
           },
           "successes": {
             "type": "boolean"
+          },
+          "rulesetVersion": {
+            "description": "De gebruikte ruleset-versie voor validatie.",
+            "type": "string"
           }
         },
         "type": "object"

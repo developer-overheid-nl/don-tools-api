@@ -370,6 +370,7 @@ components:
         score: 6
         failures: 0
         successes: true
+        rulesetVersion: "2.1"
         messages:
         - severity: severity
           createdAt: 2000-01-23T04:56:07.000+00:00
@@ -419,6 +420,9 @@ components:
           type: integer
         successes:
           type: boolean
+        rulesetVersion:
+          description: De gebruikte ruleset-versie voor validatie.
+          type: string
       type: object
     UntrustClientInput:
       example:
