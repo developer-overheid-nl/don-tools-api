@@ -14,7 +14,7 @@ const RULESET_FILES = {
   "2.0": path.join(__dirname, "..", "rulesets", "ruleset_2.0.yaml"),
   2.1: path.join(__dirname, "..", "rulesets", "ruleset_2.1.yaml"),
 };
-const DEFAULT_RULESET_VERSION = "2.1";
+const DEFAULT_RULESET_VERSION = "2.0";
 
 const SEVERITY_LABELS = ["error", "warning", "info", "hint"];
 
