@@ -230,7 +230,7 @@ const computeAdrScore = (messages) => {
   };
 };
 
-const buildLintResult = (diagnostics) => {
+const buildLintResult = (diagnostics, rulesetVersion) => {
   const timestamp = new Date().toISOString();
   const messages = mapDiagnosticsToMessages(diagnostics, timestamp);
   const errorCount = messages.filter((message) => String(message.severity).toLowerCase() === "error").length;
@@ -243,6 +243,7 @@ const buildLintResult = (diagnostics) => {
     messages,
     score,
     successes: score === 100,
+    rulesetVersion,
   };
 };
 
@@ -275,7 +276,7 @@ const validate = async (input) => {
   const parseDiagnostics = Array.isArray(document.diagnostics) ? document.diagnostics : [];
   const lintDiagnostics = await spectral.run(document, { ignoreUnknownFormat: false });
   const diagnostics = [...parseDiagnostics, ...lintDiagnostics];
-  return buildLintResult(diagnostics);
+  return buildLintResult(diagnostics, rulesetVersion);
 };
 
 module.exports = {
