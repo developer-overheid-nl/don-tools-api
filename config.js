@@ -16,7 +16,7 @@ const config = {
   PROJECT_DIR: __dirname,
   USE_MOCKS: parseEnvBoolean(process.env.USE_MOCKS) || parseEnvBoolean(process.env.MOCKS_ENABLED),
 };
-config.OPENAPI_YAML = path.join(config.ROOT_DIR, "api", "openapi.yaml");
+config.OPENAPI_JSON = path.join(config.ROOT_DIR, "api", "openapi.json");
 config.FULL_PATH = `${config.URL_PATH}:${config.URL_PORT}/${config.BASE_VERSION}`;
 config.FILE_UPLOAD_PATH = path.join(config.PROJECT_DIR, "uploaded_files");
 config.MOCK_DIR = path.join(config.PROJECT_DIR, "mocks");
