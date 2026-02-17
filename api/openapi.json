@@ -6,7 +6,7 @@
       "name": "Team developer.overheid.nl",
       "url": "https://github.com/developer-overheid-nl/don-tools-api/issues"
     },
-    "description": "API van het Tools (apis.developer.overheid.nl)",
+    "description": "API to access the tools endpoints of developer.overheid.nl.\n\n## Auth\n\nThis API provides tools endpoints that can be accessed with either an API key or a client credentials token.\n\n### API key\n\nUsing an API key, you can access the tools endpoints.\nThese requests can also be made from the browser.\nRequest a read-only API key at https://apis.developer.overheid.nl/apis/key-aanvragen.\nSimply pass the obtained API key with each request using the `X-Api-Key` header.\n\n### Client credentials token\n\nUsing a client credentials token, you can access the tools endpoints.\nTo obtain the token, perform a `POST` request to `https://auth.developer.overheid.nl/realms/don/protocol/openid-connect/token` with the following Form URL Encoded body:\n- `grant_type`: `client_credentials`\n- `scope`: `tools`\n- `client_id`: the client id you received from us\n- `client_secret`: the client secret you received from us\n\nPass the obtained token with each request using the `Authorization` header. Example:\n\n`Authorization`: `Bearer {ACCESS_TOKEN}` (replace `{ACCESS_TOKEN}` with the obtained `access_token`)",
     "title": "Tools API v1",
     "version": "1.0.0"
   },
@@ -72,11 +72,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Arazzo Markdown (POST)",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -121,11 +123,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Arazzo Mermaid (POST)",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -170,11 +174,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Maak client (POST)",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -212,11 +218,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Converteer OpenAPI 3.0/3.1",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -254,11 +262,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Bundle OpenAPI",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -303,11 +313,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Generate OpenAPI",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -352,11 +364,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Validate OpenAPI (POST)",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     },
@@ -394,11 +408,13 @@
         "security": [
           {
             "apiKey": [],
-            "clientCredentials": ["tools"]
+            "clientCredentials": []
           }
         ],
         "summary": "Maak Postman-collectie (POST)",
-        "tags": ["Tools"],
+        "tags": [
+          "Tools"
+        ],
         "x-eov-operation-handler": "controllers/ToolsController"
       }
     }
@@ -626,16 +642,17 @@
     "securitySchemes": {
       "apiKey": {
         "in": "header",
-        "name": "X-API-Key",
-        "type": "apiKey"
+        "name": "X-Api-Key",
+        "type": "apiKey",
+        "description": "Read-only API keys for tools endpoints can be requested at https://apis.developer.overheid.nl/apis/key-aanvragen."
       },
       "clientCredentials": {
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "tools:read": "Toegang tot de tools endpoints"
+              "tools": "Access to tools endpoints"
             },
-            "tokenUrl": "https://auth.don.apps.digilab.network/realms/don/protocol/openid-connect/token"
+            "tokenUrl": "https://auth.developer.overheid.nl/realms/don/protocol/openid-connect/token"
           }
         },
         "type": "oauth2"
