@@ -39,7 +39,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -66,7 +66,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -90,7 +90,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -117,7 +117,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -168,7 +168,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -192,7 +192,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -212,7 +212,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -236,7 +236,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -256,7 +256,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -280,7 +280,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -307,7 +307,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -331,7 +331,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -358,7 +358,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -382,7 +382,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OASInput"
+                "$ref": "#/components/schemas/OasInput"
               }
             }
           }
@@ -402,7 +402,7 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "$ref": "#/components/responses/404"
           }
         },
         "security": [
@@ -436,13 +436,13 @@
         "description": "Resource does not exist",
         "headers": {
           "API-Version": {
-            "$ref": "#/headers/API-Version"
+            "$ref": "#/components/headers/API-Version"
           }
         }
       }
     },
     "schemas": {
-      "OASInput": {
+      "OasInput": {
         "example": {
           "oasUrl": "oasUrl",
           "oasBody": "oasBody",
