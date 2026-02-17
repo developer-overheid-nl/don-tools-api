@@ -1,7 +1,6 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const jsYaml = require("js-yaml");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -78,11 +77,11 @@ class ExpressServer {
     }
   }
 
-  constructor(port, openApiYaml) {
+  constructor(port, openApiJsonPath) {
     this.port = port;
     this.app = express();
     try {
-      this.schema = jsYaml.load(fs.readFileSync(openApiYaml, "utf8"));
+      this.schema = JSON.parse(fs.readFileSync(openApiJsonPath, "utf8"));
       if (this.schema?.components) {
         const { components } = this.schema;
         const componentMirrors = [
