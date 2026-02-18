@@ -1,6 +1,5 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const jsYaml = require("js-yaml");
 const config = require("../config");
 const logger = require("../logger");
 
@@ -143,8 +142,8 @@ class Service {
       return Service.apiDoc;
     }
     try {
-      const specContents = fs.readFileSync(config.OPENAPI_YAML, "utf8");
-      Service.apiDoc = jsYaml.load(specContents);
+      const specContents = fs.readFileSync(config.OPENAPI_JSON, "utf8");
+      Service.apiDoc = JSON.parse(specContents);
     } catch (error) {
       logger.error(`Unable to load OpenAPI spec for auto mocks: ${error.message}`);
       Service.apiDoc = null;

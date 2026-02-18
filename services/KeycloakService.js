@@ -2,7 +2,7 @@ const { randomUUID } = require("node:crypto");
 const { URL, URLSearchParams } = require("node:url");
 const Service = require("./Service");
 
-const KEYCLOAK_CLIENT_DESCRIPTION = "Dit is een read only api key, meer info: https://developer.overheid.nl/";
+const KEYCLOAK_CLIENT_DESCRIPTION = "Dit is een read-only api key. Meer info: https://apis.developer.overheid.nl/apis/toevoegen";
 const DEFAULT_TIMEOUT_MS = 30000;
 const MAX_ERROR_BODY_LENGTH = 8192;
 
