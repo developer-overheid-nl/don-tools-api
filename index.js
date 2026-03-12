@@ -19,18 +19,21 @@ const logger = require("./logger");
 const ExpressServer = require("./expressServer");
 const { schedulePdokHarvestFromEnv } = require("./jobs/HarvestJob");
 
+let expressServer;
+let harvestScheduler;
+
 const launchServer = async () => {
   try {
-    this.expressServer = new ExpressServer(config.URL_PORT, config.OPENAPI_JSON);
-    this.expressServer.launch();
-    this.harvestScheduler = schedulePdokHarvestFromEnv();
+    expressServer = new ExpressServer(config.URL_PORT, config.OPENAPI_JSON);
+    expressServer.launch();
+    harvestScheduler = schedulePdokHarvestFromEnv();
     logger.info("Express server running");
   } catch (error) {
     logger.error("Express Server failure", error.message);
-    if (this.harvestScheduler && typeof this.harvestScheduler.stop === "function") {
-      this.harvestScheduler.stop();
+    if (harvestScheduler && typeof harvestScheduler.stop === "function") {
+      harvestScheduler.stop();
     }
-    await this.close();
+    await expressServer?.close?.();
   }
 };
 
