@@ -132,3 +132,24 @@ components:
   assert.equal(converted.openapi, "3.1.0");
   assert.deepEqual(converted.components.schemas.Item.properties.maybeText.type, ["string", "null"]);
 });
+
+test("convert without targetVersion keeps existing 3.1 patch version", async () => {
+  const sourceSpec = {
+    openapi: "3.1.2",
+    info: {
+      title: "Test API",
+      version: "1.0.0",
+    },
+    paths: {},
+  };
+
+  const result = await OasConversionService.convert({
+    oasBody: JSON.stringify(sourceSpec),
+  });
+
+  const converted = toJson(result.rawBody);
+
+  assert.equal(result.headers["Content-Type"], "application/json");
+  assert.equal(result.headers["Content-Disposition"], 'attachment; filename="openapi-3-1-2.json"');
+  assert.equal(converted.openapi, "3.1.2");
+});

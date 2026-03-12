@@ -86,7 +86,7 @@ const ensureObjectSpec = (value, errorMessage) => {
   return value;
 };
 
-const convertSpec = async (spec, targetVersion) => {
+const convertSpec = async (spec, targetVersion, options = {}) => {
   const sourceDescriptor = resolveVersionDescriptor(spec.openapi);
   const openapiValue = spec.openapi;
   const rawVersion = openapiValue === undefined || openapiValue === null ? "" : String(openapiValue).trim();
@@ -100,6 +100,10 @@ const convertSpec = async (spec, targetVersion) => {
   }
 
   if (sourceDescriptor.major === targetDescriptor.major) {
+    if (options.preserveSourceVersion && sourceDescriptor.major === "3.1") {
+      spec.openapi = rawVersion;
+      return { spec, resolvedVersion: rawVersion };
+    }
     spec.openapi = targetDescriptor.canonical;
     return { spec, resolvedVersion: targetDescriptor.canonical };
   }
@@ -152,7 +156,10 @@ const extractTargetVersion = (input) => {
 };
 
 const convert = async (input) => {
-  const targetVersion = normalizeTargetVersion(extractTargetVersion(input));
+  const requestedTargetVersion = extractTargetVersion(input);
+  const targetVersion = normalizeTargetVersion(requestedTargetVersion);
+  const hasExplicitTargetVersion =
+    typeof requestedTargetVersion === "string" && requestedTargetVersion.trim().length > 0;
   const { contents } = await resolveOasInput(input);
   let parsed;
   try {
@@ -175,7 +182,9 @@ const convert = async (input) => {
   }
   const { spec, format } = parsed;
   try {
-    const { spec: convertedSpec, resolvedVersion } = await convertSpec(spec, targetVersion);
+    const { spec: convertedSpec, resolvedVersion } = await convertSpec(spec, targetVersion, {
+      preserveSourceVersion: !hasExplicitTargetVersion,
+    });
     const { buffer, contentType, filename } = serializeSpecification(convertedSpec, format, resolvedVersion);
     return {
       headers: {
