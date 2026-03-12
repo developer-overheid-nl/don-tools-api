@@ -3,7 +3,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
-const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const OpenApiValidator = require("express-openapi-validator");
 const logger = require("./logger");
@@ -134,7 +133,6 @@ class ExpressServer {
     this.app.use(bodyParser.json({ limit: "14MB" }));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: false }));
-    this.app.use(cookieParser());
     this.app.use((_req, res, next) => {
       res.set("API-Version", this.schema.info.version);
       next();
