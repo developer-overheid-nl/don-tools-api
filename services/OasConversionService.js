@@ -36,18 +36,13 @@ const parseSpecification = (contents) => {
   }
 };
 
-const normalizeVersionInput = (value) => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value.toString();
-  }
-  if (typeof value === "string") {
-    return value.trim();
-  }
-  return "";
-};
-
 const resolveVersionDescriptor = (value) => {
-  const raw = normalizeVersionInput(value);
+  const raw =
+    typeof value === "number" && Number.isFinite(value)
+      ? value.toString()
+      : typeof value === "string"
+        ? value.trim()
+        : "";
   if (!raw) {
     return null;
   }
@@ -88,8 +83,7 @@ const ensureObjectSpec = (value, errorMessage) => {
 
 const convertSpec = async (spec, targetVersion, options = {}) => {
   const sourceDescriptor = resolveVersionDescriptor(spec.openapi);
-  const openapiValue = spec.openapi;
-  const rawVersion = openapiValue === undefined || openapiValue === null ? "" : String(openapiValue).trim();
+  const rawVersion = spec.openapi == null ? "" : String(spec.openapi).trim();
   if (rawVersion.length === 0 || !sourceDescriptor) {
     throw Service.rejectResponse({ message: VERSION_MISSING_ERROR }, 400);
   }
@@ -148,15 +142,8 @@ const serializeSpecification = (spec, format, targetVersion) => {
   };
 };
 
-const extractTargetVersion = (input) => {
-  if (input && typeof input === "object" && !Array.isArray(input) && typeof input.targetVersion === "string") {
-    return input.targetVersion;
-  }
-  return undefined;
-};
-
 const convert = async (input) => {
-  const requestedTargetVersion = extractTargetVersion(input);
+  const requestedTargetVersion = typeof input?.targetVersion === "string" ? input.targetVersion : undefined;
   const targetVersion = normalizeTargetVersion(requestedTargetVersion);
   const hasExplicitTargetVersion =
     typeof requestedTargetVersion === "string" && requestedTargetVersion.trim().length > 0;
@@ -165,50 +152,34 @@ const convert = async (input) => {
   try {
     parsed = parseSpecification(contents);
   } catch (error) {
-    logger.error(
-      `[OasConversionService] parseSpecification failed: ${error?.message || "unknown"}${
-        error?.stack ? ` stack=${error.stack}` : ""
-      }`,
-    );
-    if (Service.isErrorResponse(error)) {
-      throw error;
-    }
-    throw Service.rejectResponse(
-      {
-        message: error.message,
-      },
-      500,
-    );
+    if (Service.isErrorResponse(error)) throw error;
+    logger.error(`[OasConversionService] parseSpecification failed: ${error?.message}`);
+    throw Service.rejectResponse({ message: error.message }, 500);
   }
+
   const { spec, format } = parsed;
+  let convertedSpec, resolvedVersion;
   try {
-    const { spec: convertedSpec, resolvedVersion } = await convertSpec(spec, targetVersion, {
+    ({ spec: convertedSpec, resolvedVersion } = await convertSpec(spec, targetVersion, {
       preserveSourceVersion: !hasExplicitTargetVersion,
-    });
-    const { buffer, contentType, filename } = serializeSpecification(convertedSpec, format, resolvedVersion);
-    return {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-      rawBody: buffer,
-    };
+    }));
   } catch (error) {
-    logger.error(
-      `[OasConversionService] convertSpec failed: ${error?.message || "unknown"}${
-        error?.stack ? ` stack=${error.stack}` : ""
-      }`,
-    );
-    if (Service.isErrorResponse(error)) {
-      throw error;
-    }
+    if (Service.isErrorResponse(error)) throw error;
+    logger.error(`[OasConversionService] convertSpec failed: ${error?.message}`);
     throw Service.rejectResponse(
-      {
-        message: error.message || "Er is een fout opgetreden tijdens het converteren.",
-      },
+      { message: error.message || "Er is een fout opgetreden tijdens het converteren." },
       500,
     );
   }
+
+  const { buffer, contentType, filename } = serializeSpecification(convertedSpec, format, resolvedVersion);
+  return {
+    headers: {
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+    rawBody: buffer,
+  };
 };
 
 module.exports = {
