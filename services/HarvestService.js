@@ -18,95 +18,23 @@ const truncate = (value, limit = MAX_ERROR_BODY_LENGTH) => {
 };
 
 const resolveFetch = (fetchImpl) => {
-  if (typeof fetchImpl === "function") {
-    return fetchImpl;
-  }
-  if (typeof fetch === "function") {
-    return fetch;
-  }
+  if (typeof fetchImpl === "function") return fetchImpl;
+  if (typeof fetch === "function") return fetch;
   throw new Error("Fetch API is niet beschikbaar in de huidige runtime.");
 };
 
-const buildUrlFromEnv = (baseUrl, realm, prefix, suffix = "") => {
-  const baseTrimmed = trimString(baseUrl).replace(/\/+$/, "");
-  const realmTrimmed = trimString(realm);
-  if (!baseTrimmed || !realmTrimmed) {
-    return "";
-  }
-  return `${baseTrimmed}${prefix}${encodeURIComponent(realmTrimmed)}${suffix}`;
-};
-
 const buildRequestSignal = (externalSignal, timeoutMs) => {
-  if (externalSignal) {
-    if (
-      typeof AbortSignal !== "undefined" &&
-      typeof AbortSignal.any === "function" &&
-      typeof AbortSignal.timeout === "function"
-    ) {
-      return AbortSignal.any([externalSignal, AbortSignal.timeout(timeoutMs)]);
-    }
-    return externalSignal;
-  }
-  if (
-    typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-  ) {
-    return AbortSignal.timeout(timeoutMs);
-  }
-  return undefined;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!externalSignal) return timeout;
+  return typeof AbortSignal.any === "function"
+    ? AbortSignal.any([externalSignal, timeout])
+    : timeout;
 };
 
 const isAbortError = (error) =>
   error?.name === "AbortError" || error?.name === "TimeoutError";
 
-const delay = (ms, signal) =>
-  new Promise((resolve, reject) => {
-    if (ms <= 0) {
-      resolve();
-      return;
-    }
-    if (signal?.aborted) {
-      reject(new Error("Request geannuleerd"));
-      return;
-    }
-
-    let settled = false;
-    let timeoutId;
-    let abortHandler;
-
-    const cleanup = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      if (signal && abortHandler) {
-        signal.removeEventListener("abort", abortHandler);
-      }
-    };
-
-    const resolveOnce = () => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cleanup();
-      resolve();
-    };
-
-    const rejectOnce = (error) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cleanup();
-      reject(error);
-    };
-
-    abortHandler = () => rejectOnce(new Error("Request geannuleerd"));
-    timeoutId = setTimeout(resolveOnce, ms);
-    if (signal) {
-      signal.addEventListener("abort", abortHandler, { once: true });
-    }
-  });
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const normalizeContact = (contact) => {
   if (!contact || typeof contact !== "object" || Array.isArray(contact)) {
@@ -188,18 +116,9 @@ class HarvestService {
   }
 
   static fromEnv() {
-    const tokenFromEnv = trimString(process.env.AUTH_TOKEN_URL);
-    const tokenURL =
-      tokenFromEnv ||
-      buildUrlFromEnv(
-        process.env.KEYCLOAK_BASE_URL,
-        process.env.KEYCLOAK_REALM,
-        "/realms/",
-        "/protocol/openid-connect/token",
-      );
     return new HarvestService({
       registerEndpoint: process.env.PDOK_REGISTER_ENDPOINT,
-      tokenURL,
+      tokenURL: process.env.AUTH_TOKEN_URL,
       clientID: process.env.AUTH_CLIENT_ID,
       clientSecret: process.env.AUTH_CLIENT_SECRET,
     });
@@ -254,7 +173,7 @@ class HarvestService {
 
     for (let i = 0; i < hrefs.length; i += 1) {
       if (i > 0) {
-        await delay(this.rateLimitDelayMs, signal);
+        await delay(this.rateLimitDelayMs);
       }
       const href = hrefs[i];
       const oasUrl = deriveOASURLWith(href);

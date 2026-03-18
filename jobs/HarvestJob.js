@@ -7,14 +7,6 @@ const DEFAULT_RUN_TIMEOUT_MS = 5 * 60 * 1000;
 
 const trimString = (value) => (typeof value === "string" ? value.trim() : "");
 
-const parsePositiveInteger = (value, fallback) => {
-  const parsed = Number(value);
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return Math.floor(parsed);
-  }
-  return fallback;
-};
-
 const getNextRunAt = (hour, minute, now = new Date()) => {
   const next = new Date(now);
   next.setHours(hour, minute, 0, 0);
@@ -44,7 +36,7 @@ const scheduleHarvest = (service, sources, options = {}) => {
     return null;
   }
 
-  const runTimeoutMs = parsePositiveInteger(options.runTimeoutMs, DEFAULT_RUN_TIMEOUT_MS);
+  const runTimeoutMs = options.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
   const hour = Number.isInteger(options.hour) ? options.hour : DEFAULT_DAILY_HOUR;
   const minute = Number.isInteger(options.minute) ? options.minute : DEFAULT_DAILY_MINUTE;
 
@@ -123,7 +115,7 @@ const buildPdokSource = () => ({
   organisationUri: "https://www.pdok.nl",
   contact: {
     name: "PDOK Support",
-    url: "https://www.pdok.nl/support1",
+    url: "https://www.pdok.nl/support",
     email: "support@pdok.nl",
   },
 });
@@ -136,22 +128,18 @@ const schedulePdokHarvestFromEnv = () => {
   }
   if (!service.hasAuthConfig()) {
     logger.warn(
-      "[HarvestJob] PDOK harvest scheduler niet gestart: auth mist (AUTH_TOKEN_URL of KEYCLOAK_BASE_URL+KEYCLOAK_REALM, AUTH_CLIENT_ID, AUTH_CLIENT_SECRET).",
+      "[HarvestJob] PDOK harvest scheduler niet gestart: auth mist (AUTH_TOKEN_URL, AUTH_CLIENT_ID, AUTH_CLIENT_SECRET).",
     );
     return null;
   }
 
-  const scheduleTime = { hour: DEFAULT_DAILY_HOUR, minute: DEFAULT_DAILY_MINUTE };
-  const runTimeoutMs = DEFAULT_RUN_TIMEOUT_MS;
   logger.info(
-    `[HarvestJob] PDOK harvest scheduler gestart (dagelijks ${String(scheduleTime.hour).padStart(2, "0")}:${String(
-      scheduleTime.minute,
-    ).padStart(2, "0")}, directe startup-run).`,
+    `[HarvestJob] PDOK harvest scheduler gestart (dagelijks ${String(DEFAULT_DAILY_HOUR).padStart(2, "0")}:${String(DEFAULT_DAILY_MINUTE).padStart(2, "0")}, directe startup-run).`,
   );
   return scheduleHarvest(service, [buildPdokSource()], {
-    hour: scheduleTime.hour,
-    minute: scheduleTime.minute,
-    runTimeoutMs,
+    hour: DEFAULT_DAILY_HOUR,
+    minute: DEFAULT_DAILY_MINUTE,
+    runTimeoutMs: DEFAULT_RUN_TIMEOUT_MS,
   });
 };
 
