@@ -1,0 +1,67 @@
+# This repository adheres to the publiccode.yml standard by including this
+# metadata file that makes public software easily discoverable.
+# More info at https://github.com/publiccodeyml/publiccode.yml
+
+publiccodeYmlVersion: "0.5"
+
+name: don-tools-api
+
+url: https://github.com/developer-overheid-nl/don-tools-api
+
+landingURL: https://apis.developer.overheid.nl
+
+categories:
+  - it-development
+  - application-development
+
+softwareType: standalone/backend
+
+platforms:
+  - web
+
+developmentStatus: beta
+
+description:
+  nl:
+    shortDescription:
+      API van het developer.overheid.nl toolsplatform voor het verwerken en valideren van OpenAPI-specificaties.
+
+    longDescription: >
+      De don-tools-api is de backend API van het developer.overheid.nl toolsplatform (apis.developer.overheid.nl).
+      De API biedt functionaliteit voor het verwerken, converteren en valideren van OpenAPI-specificaties.
+      Ontwikkelaars kunnen via deze API OpenAPI-specificaties omzetten tussen versies (3.0 en 3.1),
+      specificaties bundelen, valideren tegen de DON API Design Rules (ADR) ruleset, Postman-collecties genereren en
+      Arazzo-workflows visualiseren. De API is gebouwd met Node.js en Express en volgt een API-first aanpak
+      waarbij het OpenAPI-contract leidend is voor de implementatie.
+
+    features:
+      - OpenAPI specificatie conversie tussen versie 3.0 en 3.1
+      - OpenAPI specificatie bundeling met oplossen van externe verwijzingen
+      - OpenAPI specificatie validatie tegen de DON API Design Rules (ADR) ruleset
+      - Boilerplate OpenAPI specificatie genereren op basis van JSON-invoer
+      - Postman collectie genereren vanuit een OpenAPI specificatie
+      - Arazzo workflow visualisatie als Mermaid-diagram of Markdown
+
+legal:
+  license: EUPL-1.2
+  mainCopyrightOwner: Ministerie van Binnenlandse Zaken en Koninkrijksrelaties
+
+intendedAudience:
+  countries:
+    - NL
+  scope:
+    - government
+
+localisation:
+  availableLanguages:
+    - nl
+    - en
+  localisationReady: false
+
+maintenance:
+  type: internal
+
+  contacts:
+    - name: Team developer.overheid.nl
+      email: developer.overheid@geonovum.nl
+      affiliation: Geonovum
