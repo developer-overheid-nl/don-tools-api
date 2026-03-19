@@ -17,22 +17,16 @@ loadLocalEnvFile();
 const config = require("./config");
 const logger = require("./logger");
 const ExpressServer = require("./expressServer");
-const { schedulePdokHarvestFromEnv } = require("./jobs/HarvestJob");
 
 let expressServer;
-let harvestScheduler;
 
 const launchServer = async () => {
   try {
     expressServer = new ExpressServer(config.URL_PORT, config.OPENAPI_JSON);
     expressServer.launch();
-    harvestScheduler = schedulePdokHarvestFromEnv();
     logger.info("Express server running");
   } catch (error) {
     logger.error("Express Server failure", error.message);
-    if (harvestScheduler && typeof harvestScheduler.stop === "function") {
-      harvestScheduler.stop();
-    }
     await expressServer?.close?.();
   }
 };
