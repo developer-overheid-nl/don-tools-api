@@ -1,9 +1,10 @@
+const { Converter } = require("@apiture/openapi-down-convert");
+const { upgrade: scalarUpgrade } = require("@scalar/openapi-upgrader");
 const jsYaml = require("js-yaml");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
 const logger = require("../logger");
 
-const JSON_SCHEMA_DIALECT_BASE = "https://spec.openapis.org/oas/3.1/dialect/base";
 const DEFAULT_TARGET_VERSION = "3.1.0";
 
 const EMPTY_BODY_ERROR = "Body ontbreekt of ongeldig: gebruik oasUrl of oasBody";
@@ -35,131 +36,13 @@ const parseSpecification = (contents) => {
   }
 };
 
-const mergeTypeWithNull = (target) => {
-  const current = target.type;
-  if (Array.isArray(current)) {
-    const hasNull = current.some((value) => value === "null");
-    target.type = hasNull ? current : [...current, "null"];
-    return;
-  }
-  if (typeof current === "string" && current.length > 0) {
-    target.type = [current, "null"];
-    return;
-  }
-  target.type = ["null"];
-};
-
-const convertSchemas30To31 = (node) => {
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      convertSchemas30To31(item);
-    }
-    return;
-  }
-  if (!node || typeof node !== "object") {
-    return;
-  }
-  Object.entries(node).forEach(([key, value]) => {
-    convertSchemas30To31(value);
-    node[key] = value;
-  });
-  if (node.nullable === true) {
-    mergeTypeWithNull(node);
-    delete node.nullable;
-  }
-};
-
-const normalizeTypeArray = (target) => {
-  const currentType = target.type;
-  if (!Array.isArray(currentType)) {
-    return;
-  }
-  const filtered = [];
-  let hasNull = false;
-  currentType.forEach((item) => {
-    if (item === null || item === undefined) {
-      return;
-    }
-    if (typeof item === "string" && item === "null") {
-      hasNull = true;
-      return;
-    }
-    filtered.push(item);
-  });
-  if (hasNull) {
-    target.nullable = true;
-  }
-  if (filtered.length === 0) {
-    delete target.type;
-  } else if (filtered.length === 1) {
-    [target.type] = filtered;
-  } else {
-    target.type = filtered;
-  }
-};
-
-const normalizeEnumNull = (target) => {
-  const { enum: enumValues } = target;
-  if (!Array.isArray(enumValues)) {
-    return;
-  }
-  const filtered = [];
-  let hasNull = false;
-  enumValues.forEach((value) => {
-    if (value === null) {
-      hasNull = true;
-      return;
-    }
-    filtered.push(value);
-  });
-  if (hasNull) {
-    target.nullable = true;
-  }
-  if (filtered.length === 0) {
-    delete target.enum;
-    return;
-  }
-  if (filtered.length !== enumValues.length) {
-    target.enum = filtered;
-  }
-};
-
-const convertSchemas31To30 = (node) => {
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      convertSchemas31To30(item);
-    }
-    return;
-  }
-  if (!node || typeof node !== "object") {
-    return;
-  }
-  Object.entries(node).forEach(([key, value]) => {
-    convertSchemas31To30(value);
-    node[key] = value;
-  });
-  if (Object.hasOwn(node, "const")) {
-    if (!Object.hasOwn(node, "enum")) {
-      node.enum = [node.const];
-    }
-    delete node.const;
-  }
-  normalizeTypeArray(node);
-  normalizeEnumNull(node);
-};
-
-const normalizeVersionInput = (value) => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value.toString();
-  }
-  if (typeof value === "string") {
-    return value.trim();
-  }
-  return "";
-};
-
 const resolveVersionDescriptor = (value) => {
-  const raw = normalizeVersionInput(value);
+  const raw =
+    typeof value === "number" && Number.isFinite(value)
+      ? value.toString()
+      : typeof value === "string"
+        ? value.trim()
+        : "";
   if (!raw) {
     return null;
   }
@@ -191,10 +74,16 @@ const normalizeTargetVersion = (value) => {
   return descriptor.canonical;
 };
 
-const convertSpec = (spec, targetVersion) => {
+const ensureObjectSpec = (value, errorMessage) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(errorMessage);
+  }
+  return value;
+};
+
+const convertSpec = async (spec, targetVersion, options = {}) => {
   const sourceDescriptor = resolveVersionDescriptor(spec.openapi);
-  const openapiValue = spec.openapi;
-  const rawVersion = openapiValue === undefined || openapiValue === null ? "" : String(openapiValue).trim();
+  const rawVersion = spec.openapi == null ? "" : String(spec.openapi).trim();
   if (rawVersion.length === 0 || !sourceDescriptor) {
     throw Service.rejectResponse({ message: VERSION_MISSING_ERROR }, 400);
   }
@@ -205,55 +94,33 @@ const convertSpec = (spec, targetVersion) => {
   }
 
   if (sourceDescriptor.major === targetDescriptor.major) {
-    spec.openapi = targetDescriptor.canonical;
-    if (targetDescriptor.major === "3.1") {
-      if (!Object.hasOwn(spec, "jsonSchemaDialect")) {
-        spec.jsonSchemaDialect = JSON_SCHEMA_DIALECT_BASE;
-      }
-      if (Object.hasOwn(spec, "x-webhooks")) {
-        if (!Object.hasOwn(spec, "webhooks")) {
-          spec.webhooks = spec["x-webhooks"];
-        }
-        delete spec["x-webhooks"];
-      }
-    } else {
-      delete spec.jsonSchemaDialect;
-      if (Object.hasOwn(spec, "webhooks")) {
-        if (!Object.hasOwn(spec, "x-webhooks")) {
-          spec["x-webhooks"] = spec.webhooks;
-        }
-        delete spec.webhooks;
-      }
+    if (options.preserveSourceVersion && sourceDescriptor.major === "3.1") {
+      spec.openapi = rawVersion;
+      return { spec, resolvedVersion: rawVersion };
     }
-    return targetDescriptor.canonical;
+    spec.openapi = targetDescriptor.canonical;
+    return { spec, resolvedVersion: targetDescriptor.canonical };
   }
 
   if (sourceDescriptor.major === "3.0" && targetDescriptor.major === "3.1") {
-    convertSchemas30To31(spec);
-    if (!Object.hasOwn(spec, "jsonSchemaDialect")) {
-      spec.jsonSchemaDialect = JSON_SCHEMA_DIALECT_BASE;
-    }
-    if (Object.hasOwn(spec, "x-webhooks")) {
-      if (!Object.hasOwn(spec, "webhooks")) {
-        spec.webhooks = spec["x-webhooks"];
-      }
-      delete spec["x-webhooks"];
-    }
-    spec.openapi = targetDescriptor.canonical;
-    return targetDescriptor.canonical;
+    const upgraded = ensureObjectSpec(
+      scalarUpgrade(spec, "3.1"),
+      "Scalar OpenAPI upgrader retourneerde een ongeldig document.",
+    );
+    upgraded.openapi = targetDescriptor.canonical;
+    return { spec: upgraded, resolvedVersion: targetDescriptor.canonical };
   }
+
   if (sourceDescriptor.major === "3.1" && targetDescriptor.major === "3.0") {
-    convertSchemas31To30(spec);
-    delete spec.jsonSchemaDialect;
-    if (Object.hasOwn(spec, "webhooks")) {
-      if (!Object.hasOwn(spec, "x-webhooks")) {
-        spec["x-webhooks"] = spec.webhooks;
-      }
-      delete spec.webhooks;
-    }
-    spec.openapi = targetDescriptor.canonical;
-    return targetDescriptor.canonical;
+    const downConverter = new Converter(spec);
+    const downgraded = ensureObjectSpec(
+      downConverter.convert(),
+      "OpenAPI down converter retourneerde een ongeldig document.",
+    );
+    downgraded.openapi = targetDescriptor.canonical;
+    return { spec: downgraded, resolvedVersion: targetDescriptor.canonical };
   }
+
   throw Service.rejectResponse({ message: UNSUPPORTED_VERSION_ERROR }, 400);
 };
 
@@ -275,62 +142,44 @@ const serializeSpecification = (spec, format, targetVersion) => {
   };
 };
 
-const extractTargetVersion = (input) => {
-  if (input && typeof input === "object" && !Array.isArray(input) && typeof input.targetVersion === "string") {
-    return input.targetVersion;
-  }
-  return undefined;
-};
-
 const convert = async (input) => {
-  const targetVersion = normalizeTargetVersion(extractTargetVersion(input));
+  const requestedTargetVersion = typeof input?.targetVersion === "string" ? input.targetVersion : undefined;
+  const targetVersion = normalizeTargetVersion(requestedTargetVersion);
+  const hasExplicitTargetVersion =
+    typeof requestedTargetVersion === "string" && requestedTargetVersion.trim().length > 0;
   const { contents } = await resolveOasInput(input);
   let parsed;
   try {
     parsed = parseSpecification(contents);
   } catch (error) {
-    logger.error(
-      `[OasConversionService] parseSpecification failed: ${error?.message || "unknown"}${
-        error?.stack ? ` stack=${error.stack}` : ""
-      }`,
-    );
-    if (Service.isErrorResponse(error)) {
-      throw error;
-    }
-    throw Service.rejectResponse(
-      {
-        message: error.message,
-      },
-      500,
-    );
+    if (Service.isErrorResponse(error)) throw error;
+    logger.error(`[OasConversionService] parseSpecification failed: ${error?.message}`);
+    throw Service.rejectResponse({ message: error.message }, 500);
   }
+
   const { spec, format } = parsed;
+  let convertedSpec, resolvedVersion;
   try {
-    const resolvedVersion = convertSpec(spec, targetVersion);
-    const { buffer, contentType, filename } = serializeSpecification(spec, format, resolvedVersion);
-    return {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-      rawBody: buffer,
-    };
+    ({ spec: convertedSpec, resolvedVersion } = await convertSpec(spec, targetVersion, {
+      preserveSourceVersion: !hasExplicitTargetVersion,
+    }));
   } catch (error) {
-    logger.error(
-      `[OasConversionService] convertSpec failed: ${error?.message || "unknown"}${
-        error?.stack ? ` stack=${error.stack}` : ""
-      }`,
-    );
-    if (Service.isErrorResponse(error)) {
-      throw error;
-    }
+    if (Service.isErrorResponse(error)) throw error;
+    logger.error(`[OasConversionService] convertSpec failed: ${error?.message}`);
     throw Service.rejectResponse(
-      {
-        message: error.message || "Er is een fout opgetreden tijdens het converteren.",
-      },
+      { message: error.message || "Er is een fout opgetreden tijdens het converteren." },
       500,
     );
   }
+
+  const { buffer, contentType, filename } = serializeSpecification(convertedSpec, format, resolvedVersion);
+  return {
+    headers: {
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+    rawBody: buffer,
+  };
 };
 
 module.exports = {
