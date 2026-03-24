@@ -20,7 +20,7 @@
   "dependencies": {
     "@apiture/openapi-down-convert": "^0.14.2",
     "@redocly/cli": "^2.20.5",
-    "@scalar/openapi-upgrader": "^0.1.8",
+    "@scalar/openapi-upgrader": "^0.2.2",
     "@stoplight/spectral-parsers": "^1.0.5",
     "@stoplight/spectral-rulesets": "^1.22.0",
     "@stoplight/spectral-runtime": "^1.1.4",
