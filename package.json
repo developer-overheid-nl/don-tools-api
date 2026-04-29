@@ -19,10 +19,11 @@
   "private": true,
   "dependencies": {
     "@apiture/openapi-down-convert": "^0.14.2",
+    "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#main",
     "@redocly/cli": "^2.20.5",
     "@scalar/openapi-upgrader": "^0.2.3",
+    "@stoplight/spectral-core": "^1.21.0",
     "@stoplight/spectral-parsers": "^1.0.5",
-    "@stoplight/spectral-rulesets": "^1.22.0",
     "@stoplight/spectral-runtime": "^1.1.4",
     "body-parser": "^2.2.2",
     "case-anything": "^3.1.2",
