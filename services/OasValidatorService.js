@@ -1,18 +1,15 @@
-const fs = require("node:fs/promises");
-const path = require("node:path");
 const { randomUUID } = require("node:crypto");
-const spectralFunctions = require("@stoplight/spectral-functions");
-const jsYaml = require("js-yaml");
-const { Spectral, Document, Ruleset } = require("@stoplight/spectral-core");
+const { Spectral, Document } = require("@stoplight/spectral-core");
 const Parsers = require("@stoplight/spectral-parsers");
-const { oas: oasRuleset } = require("@stoplight/spectral-rulesets");
 const Service = require("./Service");
 const { fetchSpecification } = require("./RemoteSpecificationService");
 const logger = require("../logger");
 
-const RULESET_FILES = {
-  "2.0": path.join(__dirname, "..", "rulesets", "ruleset_2.0.yaml"),
-  2.1: path.join(__dirname, "..", "rulesets", "ruleset_2.1.yaml"),
+const RULESET_LOADERS = {
+  "2.0": () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-20"),
+  "2.1": () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-21"),
+  "2.2": () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-22"),
+  draft: () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-draft"),
 };
 const DEFAULT_RULESET_VERSION = "2.1";
 
@@ -20,106 +17,40 @@ const SEVERITY_LABELS = ["error", "warning", "info", "hint"];
 
 const MEASURED_RULE_GROUPS = {
   openapi3: "openapi3",
+  "nlgov:openapi3": "openapi3",
   "openapi-root-exists": "openapi-root-exists",
+  "nlgov:openapi-root-exists": "openapi-root-exists",
   "missing-version-header": "version-header",
+  "nlgov:missing-version-header": "version-header",
   "missing-header": "version-header",
+  "nlgov:missing-header": "version-header",
   "include-major-version-in-uri": "include-major-version-in-uri",
+  "nlgov:include-major-version-in-uri": "include-major-version-in-uri",
   "paths-no-trailing-slash": "paths-no-trailing-slash",
+  "nlgov:paths-no-trailing-slash": "paths-no-trailing-slash",
   "info-contact-fields-exist": "info-contact-fields-exist",
+  "nlgov:info-contact-fields-exist": "info-contact-fields-exist",
   "http-methods": "http-methods",
+  "nlgov:http-methods": "http-methods",
   semver: "semver",
+  "nlgov:semver": "semver",
 };
 
 const MEASURED_GROUP_KEYS = Array.from(new Set(Object.values(MEASURED_RULE_GROUPS)));
 
 const spectralInstancePromises = new Map();
 
-const resolveRulesetExtendsEntry = (entry) => {
-  if (Array.isArray(entry)) {
-    if (entry.length === 0) {
-      return entry;
-    }
-    const [target, severity, ...rest] = entry;
-    if (rest.length > 0) {
-      throw new Error(`Onbekende extends configuratie in ruleset: ${JSON.stringify(entry)}`);
-    }
-    return [resolveRulesetExtendsEntry(target), severity];
-  }
-  if (typeof entry === "string") {
-    if (entry === "spectral:oas") {
-      return oasRuleset;
-    }
-    throw new Error(`Onbekende ruleset referentie '${entry}'`);
-  }
-  return entry;
-};
-
-const getRulesetPath = (version) => {
-  if (Object.hasOwn(RULESET_FILES, version)) {
-    return RULESET_FILES[version];
-  }
-  return RULESET_FILES[DEFAULT_RULESET_VERSION];
-};
-
-const loadRulesetDefinition = async (rulesetPath) => {
-  try {
-    const contents = await fs.readFile(rulesetPath, "utf8");
-    const definition = jsYaml.load(contents);
-    if (!definition || typeof definition !== "object") {
-      throw new Error("Ruleset-bestand is leeg of ongeldig.");
-    }
-    if (definition.extends) {
-      const normalizedExtends = Array.isArray(definition.extends)
-        ? definition.extends.map(resolveRulesetExtendsEntry)
-        : resolveRulesetExtendsEntry(definition.extends);
-      definition.extends = normalizedExtends;
-    }
-    if (definition.rules) {
-      Object.values(definition.rules).forEach((rule) => {
-        if (!rule || typeof rule !== "object") {
-          return;
-        }
-        const thens = Array.isArray(rule.then) ? rule.then : [rule.then];
-        thens.forEach((thenEntry) => {
-          if (!thenEntry || typeof thenEntry !== "object") {
-            return;
-          }
-          if (typeof thenEntry.function === "string") {
-            const fnName = thenEntry.function;
-            const fn = spectralFunctions[fnName];
-            if (typeof fn !== "function") {
-              throw new Error(`Onbekende Spectral-functie '${fnName}' in ruleset.`);
-            }
-            thenEntry.function = fn;
-          }
-        });
-      });
-    }
-    return definition;
-  } catch (error) {
-    logger.error("[OasValidatorService] loadRulesetDefinition failed", {
-      message: error.message,
-      stack: error.stack,
-    });
-    throw new Error(error.message || "Onbekende fout bij het laden van het ruleset-bestand.");
-  }
-};
-
-const loadSpectral = async (rulesetVersion) => {
+const loadSpectral = (rulesetVersion) => {
   if (!spectralInstancePromises.has(rulesetVersion)) {
     const promise = (async () => {
       try {
-        const rulesetPath = getRulesetPath(rulesetVersion);
+        const loader = RULESET_LOADERS[rulesetVersion];
+        const module = await loader();
         const spectral = new Spectral();
-        const rulesetDefinition = await loadRulesetDefinition(rulesetPath);
-        const ruleset = new Ruleset(rulesetDefinition, {
-          severity: "recommended",
-          source: rulesetPath,
-        });
-        spectral.setRuleset(ruleset);
+        spectral.setRuleset(module.default);
         return spectral;
       } catch (error) {
-        logger.error(`[OasValidatorService] Unable to load Spectral ruleset (${rulesetVersion}): ${error.message}`);
+        logger.error(`[OasValidatorService] Unable to load ruleset (${rulesetVersion}): ${error.message}`);
         spectralInstancePromises.delete(rulesetVersion);
         throw Service.rejectResponse(
           {
@@ -258,7 +189,7 @@ const normalizeRulesetVersion = (value) => {
   if (trimmed === "2") {
     return "2.0";
   }
-  if (Object.hasOwn(RULESET_FILES, trimmed)) {
+  if (Object.hasOwn(RULESET_LOADERS, trimmed)) {
     return trimmed;
   }
   return DEFAULT_RULESET_VERSION;
