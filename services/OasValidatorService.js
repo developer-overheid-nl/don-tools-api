@@ -202,6 +202,9 @@ const resolveValidationSettings = (input) => ({
 const validate = async (input) => {
   const { contents, source } = await resolveSpecificationInput(input);
   const { rulesetVersion } = resolveValidationSettings(input);
+  logger.info(
+    `[OasValidatorService] validate using ADR ruleset ${rulesetVersion} (targetVersion=${input?.targetVersion || "default"}, source=${source})`,
+  );
   const spectral = await loadSpectral(rulesetVersion);
   const document = new Document(contents, Parsers.Yaml, source);
   const parseDiagnostics = Array.isArray(document.diagnostics) ? document.diagnostics : [];
