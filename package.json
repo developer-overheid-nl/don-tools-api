@@ -11,10 +11,6 @@
     "lint": "biome lint .",
     "format": "biome format --write ."
   },
-  "keywords": [
-    "openapi-generator",
-    "openapi"
-  ],
   "license": "EUPL-1.2",
   "private": true,
   "dependencies": {
