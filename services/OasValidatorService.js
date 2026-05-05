@@ -8,8 +8,6 @@ const logger = require("../logger");
 const RULESET_LOADERS = {
   "2.0": () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-20"),
   "2.1": () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-21"),
-  "2.2": () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-22"),
-  draft: () => import("@developer-overheid-nl/adr-rulesets/rulesets/adr-draft"),
 };
 const DEFAULT_RULESET_VERSION = "2.1";
 
