@@ -11,30 +11,27 @@
     "lint": "biome lint .",
     "format": "biome format --write ."
   },
-  "keywords": [
-    "openapi-generator",
-    "openapi"
-  ],
-  "license": "Unlicense",
+  "license": "EUPL-1.2",
   "private": true,
   "dependencies": {
     "@apiture/openapi-down-convert": "^0.14.2",
-    "@redocly/cli": "^2.20.5",
-    "@scalar/openapi-upgrader": "^0.2.3",
+    "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#da1327dfcc83ed130b1fe5aaa282b7bfba537aee",
+    "@redocly/cli": "^2.30.2",
+    "@scalar/openapi-upgrader": "^0.2.6",
     "@stoplight/spectral-parsers": "^1.0.5",
-    "@stoplight/spectral-rulesets": "^1.22.0",
-    "@stoplight/spectral-runtime": "^1.1.4",
+    "@stoplight/spectral-rulesets": "^1.22.1",
+    "@stoplight/spectral-runtime": "^1.1.5",
     "body-parser": "^2.2.2",
     "case-anything": "^3.1.2",
     "cors": "^2.8.6",
-    "express": "^5.1.0",
+    "express": "^5.2.1",
     "express-openapi-validator": "^5.6.2",
     "js-yaml": "^4.1.1",
     "jszip": "^3.10.1",
-    "openapi-to-postmanv2": "^5.3.4",
+    "openapi-to-postmanv2": "^6.0.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.4"
+    "@biomejs/biome": "^2.4.13"
   }
 }
