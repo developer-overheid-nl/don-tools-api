@@ -15,7 +15,7 @@
   "private": true,
   "dependencies": {
     "@apiture/openapi-down-convert": "^0.14.2",
-    "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#main",
+    "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#da1327dfcc83ed130b1fe5aaa282b7bfba537aee",
     "@redocly/cli": "^2.30.2",
     "@scalar/openapi-upgrader": "^0.2.6",
     "@stoplight/spectral-parsers": "^1.0.5",
