@@ -22,10 +22,15 @@ jobs:
         id: check
         env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          # Altijd deployen bij handmatige trigger (workflow_dispatch)
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "deploy=true" >> $GITHUB_OUTPUT
+            echo "Handmatige trigger, deploy wordt uitgevoerd."
           # Keyword: [deploy-test] anywhere in de commit message
           # Voorbeeld: "feat: nieuwe feature [deploy-test]"
-          if echo "$COMMIT_MESSAGE" | grep -qi "\[deploy-test\]"; then
+          elif echo "$COMMIT_MESSAGE" | grep -qi "\[deploy-test\]"; then
             echo "deploy=true" >> $GITHUB_OUTPUT
             echo "Deploy keyword gevonden in commit message."
           else
