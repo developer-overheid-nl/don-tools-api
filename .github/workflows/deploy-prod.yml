@@ -47,7 +47,7 @@ jobs:
       - name: Maak release branch aan in don-infra
         id: branch
         run: |
-          BRANCH="release/don-site-${{ github.sha }}"
+          BRANCH="release/don-tools-api-${{ github.sha }}"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           git checkout -b "$BRANCH"
 
