@@ -26,9 +26,9 @@ description:
       Ontwikkelaars kunnen via deze API OpenAPI-specificaties omzetten tussen
       versies (3.0 en 3.1), specificaties bundelen, valideren tegen de DON API
       Design Rules (ADR) ruleset, Postman-collecties genereren en
-      Arazzo-workflows visualiseren. De API is gebouwd met Node.js en Express
-      en volgt een API-first aanpak waarbij het OpenAPI-contract leidend is
-      voor de implementatie.
+      Arazzo-workflows visualiseren. De API is gebouwd met Node.js,
+      TypeScript en Fastify en volgt een API-first aanpak waarbij het
+      OpenAPI-contract leidend is voor de implementatie.
     features:
       - OpenAPI specificatie conversie tussen versie 3.0 en 3.1
       - OpenAPI specificatie bundeling met oplossen van externe verwijzingen
