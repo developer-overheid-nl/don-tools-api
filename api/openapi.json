@@ -78,8 +78,7 @@
         "summary": "Arazzo Markdown (POST)",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/arazzo/mermaid": {
@@ -129,8 +128,7 @@
         "summary": "Arazzo Mermaid (POST)",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/auth/clients": {
@@ -180,8 +178,7 @@
         "summary": "Maak client (POST)",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/oas/convert": {
@@ -224,8 +221,7 @@
         "summary": "Converteer OpenAPI 3.0/3.1",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/oas/bundle": {
@@ -268,8 +264,7 @@
         "summary": "Bundle OpenAPI",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/oas/generate": {
@@ -319,8 +314,7 @@
         "summary": "Generate OpenAPI",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/oas/validate": {
@@ -370,8 +364,7 @@
         "summary": "Validate OpenAPI (POST)",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     },
     "/v1/oas/postman": {
@@ -414,8 +407,7 @@
         "summary": "Maak Postman-collectie (POST)",
         "tags": [
           "Tools"
-        ],
-        "x-eov-operation-handler": "controllers/ToolsController"
+        ]
       }
     }
   },
