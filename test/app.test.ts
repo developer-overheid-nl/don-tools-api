@@ -1,40 +1,43 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { FastifyInstance } from "fastify";
-import { buildApp } from "../src/app.js";
+import type { NestFastifyApplication } from "@nestjs/platform-fastify";
+import { createApp } from "../index.ts";
 
-let app: FastifyInstance;
+let app: NestFastifyApplication;
 
 beforeAll(async () => {
-  app = await buildApp({ loggerEnabled: false });
-  await app.ready();
+  app = await createApp();
+  await app.init();
 });
 
 afterAll(async () => {
   await app.close();
 });
 
+const inject = async (options: { method: string; url: string; payload?: unknown }) =>
+  app.getHttpAdapter().getInstance().inject(options);
+
 describe("app", () => {
   it("serves the OpenAPI spec", async () => {
-    const response = await app.inject({ method: "GET", url: "/v1/openapi.json" });
+    const response = await inject({ method: "GET", url: "/openapi.json" });
     expect(response.statusCode).toBe(200);
     const body = response.json() as { info: { title: string } };
     expect(body.info.title).toBe("Tools API v1");
   });
 
   it("returns API-Version header", async () => {
-    const response = await app.inject({ method: "GET", url: "/v1/openapi.json" });
+    const response = await inject({ method: "GET", url: "/openapi.json" });
     expect(response.headers["api-version"]).toBe("1.0.0");
   });
 
   it("returns problem+json on unknown route", async () => {
-    const response = await app.inject({ method: "GET", url: "/no-such-route" });
+    const response = await inject({ method: "GET", url: "/no-such-route" });
     expect(response.statusCode).toBe(404);
     expect(response.headers["content-type"]).toContain("application/problem+json");
-    expect(response.json()).toMatchObject({ status: 404, title: "Not Found" });
+    expect(response.json()).toMatchObject({ status: 404, title: "Cannot GET /no-such-route" });
   });
 
   it("returns problem+json on validation failure", async () => {
-    const response = await app.inject({
+    const response = await inject({
       method: "POST",
       url: "/v1/oas/validate",
       payload: {},
@@ -44,7 +47,7 @@ describe("app", () => {
   });
 
   it("converts OpenAPI through the logic package", async () => {
-    const response = await app.inject({
+    const response = await inject({
       method: "POST",
       url: "/v1/oas/convert",
       payload: {
