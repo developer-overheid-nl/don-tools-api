@@ -22,10 +22,8 @@
     "controllers/**/*.ts",
     "decorators/**/*.ts",
     "models/**/*.ts",
-    "api-implementations.ts",
-    "api.module.ts",
-    "index.ts",
-    "tools-api.service.ts"
+    "app/**/*.ts",
+    "implementation/**/*.ts"
   ],
   "exclude": ["node_modules", "dist", "src", "test"]
 }

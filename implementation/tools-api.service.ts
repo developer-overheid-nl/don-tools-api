@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import type { OasInput, UntrustedClientInput, ValidateInput } from "@developer-overheid-nl/don-tools-logic";
-import { ToolsApi } from "./api";
-import type { ModelsKeycloakClientResult, ModelsLintResult } from "./models";
+import { ToolsApi } from "../api";
+import type { ModelsKeycloakClientResult, ModelsLintResult } from "../models";
 
 const setHeaders = (reply: FastifyReply, headers: Record<string, string>) => {
   for (const [name, value] of Object.entries(headers)) reply.header(name, value);
