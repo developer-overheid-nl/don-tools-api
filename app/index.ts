@@ -10,7 +10,7 @@ import { OpenAPIBackend } from "openapi-backend";
 import type { Operation, Request as OpenAPIRequest } from "openapi-backend";
 import type Ajv from "ajv";
 import { ApiModule } from "./api.module";
-import { ToolsApiService } from "./tools-api.service";
+import { ToolsApiService } from "../implementation/tools-api.service";
 
 const yaml = require("js-yaml") as { load(input: string): unknown };
 
@@ -453,6 +453,11 @@ const isDeclaredResponseStatus = (operation: RuntimeOperation, statusCode: numbe
   return String(statusCode) in responses || `${Math.floor(statusCode / 100)}XX` in responses || "default" in responses;
 };
 
+const chooseDeclaredResponseStatus = (operation: RuntimeOperation | undefined, statusCode: number): number => {
+  if (!operation || statusCode >= 400 || isDeclaredResponseStatus(operation, statusCode)) return statusCode;
+  return selectMockStatusCode(operation);
+};
+
 @Catch()
 class ProblemDetailsFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
@@ -603,7 +608,9 @@ export const createApp = async () => {
 
   fastify.addHook("onSend", async (_request, reply, payload) => {
     const request = _request as RuntimeRequest & { openapiOperation?: RuntimeOperation };
-    applyDeclaredResponseMetadata(openapiDocument, request, reply as RuntimeReply, request.openapiOperation, reply.statusCode, apiVersion);
+    const statusCode = chooseDeclaredResponseStatus(request.openapiOperation, reply.statusCode);
+    if (statusCode !== reply.statusCode) reply.status(statusCode);
+    applyDeclaredResponseMetadata(openapiDocument, request, reply as RuntimeReply, request.openapiOperation, statusCode, apiVersion);
     return payload;
   });
   fastify.addHook("onSend", async (request, reply, payload) => {

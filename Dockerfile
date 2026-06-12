@@ -7,7 +7,8 @@ COPY api ./api
 COPY controllers ./controllers
 COPY decorators ./decorators
 COPY models ./models
-COPY api-implementations.ts api.module.ts index.ts tools-api.service.ts ./
+COPY implementation ./implementation
+COPY app ./app
 RUN npm run build
 
 FROM node:22-alpine AS runtime
@@ -20,4 +21,4 @@ COPY api ./api
 
 EXPOSE 1338
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/app/index.js"]

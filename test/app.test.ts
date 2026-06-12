@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { createApp } from "../index.ts";
+import { createApp } from "../app/index.ts";
 
 let app: NestFastifyApplication;
 
