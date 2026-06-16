@@ -18,11 +18,9 @@ jobs:
           cache: npm
 
       - name: Configure GitHub git dependencies over HTTPS
-        env:
-          GIT_AUTH_TOKEN: ${{ secrets.DEPENDENCY_REPO_READ_TOKEN || github.token }}
         run: |
-          git config --global --add url."https://x-access-token:${GIT_AUTH_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
-          git config --global --add url."https://x-access-token:${GIT_AUTH_TOKEN}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
 
       - name: Install dependencies
         run: npm install --ignore-scripts
@@ -51,8 +49,6 @@ jobs:
         with:
           context: .
           push: true
-          secrets: |
-            git_auth_token=${{ secrets.DEPENDENCY_REPO_READ_TOKEN || github.token }}
           tags: |
             ghcr.io/developer-overheid-nl/don-api-tools:latest
             ghcr.io/developer-overheid-nl/don-api-tools:${{ github.sha }}
