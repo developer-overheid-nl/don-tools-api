@@ -1,40 +1,127 @@
-# Tools API
+# DON Tools API v1
 
-HTTP API for developer.overheid.nl tools.
+HTTP API voor de tools op `developer.overheid.nl`.
 
-This repository contains only the API transport layer: OpenAPI validation, Fastify routing, response headers, and error
-mapping. Business logic lives in `@developer-overheid-nl/don-tools-logic`, currently consumed locally from
-`../don-tools-api-v2`.
+Deze repository bevat de API-laag voor versie 1 van de Tools API: routing, OpenAPI-validatie,
+response headers, foutafhandeling en de koppeling naar de daadwerkelijke businesslogica. Die
+businesslogica staat in `@developer-overheid-nl/don-tools-logic` en wordt los beheerd in
+`don-tools-api-v2`.
 
-## Stack
+## Wat zit hierin?
+
+- NestJS met Fastify als HTTP runtime
+- OpenAPI request- en responsevalidatie via `openapi-backend`
+- Gegenereerde controller- en modelbestanden op basis van `api/openapi.yaml`
+- Implementatie-adapter in `implementation/tools-api.service.ts`
+- Docker image voor deployment op poort `1338`
+
+## Endpoints
+
+De OpenAPI-specificatie staat in `api/openapi.yaml` en `api/openapi.json`.
+
+Bij runtime worden deze ook beschikbaar gemaakt op:
+
+- `GET /openapi.yaml`
+- `GET /openapi.json`
+
+Belangrijkste tools-endpoints:
+
+- `POST /v1/oas/validate`
+- `POST /v1/oas/convert`
+- `POST /v1/oas/bundle`
+- `POST /v1/oas/generate`
+- `POST /v1/oas/postman`
+- `POST /v1/arazzo/markdown`
+- `POST /v1/arazzo/mermaid`
+- `POST /v1/auth/clients`
+
+## Lokaal ontwikkelen
+
+Vereisten:
 
 - Node.js 22+
-- TypeScript, native ESM, `NodeNext`
-- Fastify v5
-- `fastify-openapi-glue` for OpenAPI operation binding
-- Vitest
-- Biome
+- npm
 
-## Development
+Installeren en starten:
 
 ```sh
 npm install
 npm run dev
-npm run build
-npm start
-npm test
-npm run lint
 ```
 
-The OpenAPI contract is `api/openapi.json`. The API also serves it at `GET /v1/openapi.json`.
+De API luistert standaard op `http://localhost:1338`.
 
-## Split
+Handige scripts:
 
-- `don-tools-api`: API adapter, OpenAPI contract, HTTP error handling
-- `don-tools-api-v2`: reusable logic package
+```sh
+npm run build      # TypeScript build naar dist/
+npm start          # start de gebouwde app
+npm test           # Vitest tests
+npm run lint       # Biome lint
+npm run typecheck  # TypeScript typecheck zonder output
+```
 
-The local package dependency is:
+## Omgevingsvariabelen
 
-```json
-"@developer-overheid-nl/don-tools-logic": "file:../don-tools-api-v2"
+- `PORT`: poort waarop de API luistert, standaard `1338`
+- `HOST`: host waarop Fastify bindt, standaard `0.0.0.0`
+- `OPENAPI_MOCK`: zet mock responses aan met `true`, `1`, `yes` of `on`
+
+Mock mode kan ook direct via:
+
+```sh
+npm run dev-mock
+```
+
+## Relatie met `don-tools-api-v2`
+
+`don-tools-api` is de v1 HTTP-adapter. De herbruikbare logica zit in
+`@developer-overheid-nl/don-tools-logic`.
+
+Zodra de logic package op npm gepubliceerd is, pin deze API op een expliciete packageversie:
+
+```sh
+npm install @developer-overheid-nl/don-tools-logic@<version>
+```
+
+Gebruik liever een npm-versie dan een GitHub dependency in CI/CD. Dat voorkomt dat builds afhankelijk
+worden van GitHub SSH keys of repository tokens.
+
+## Docker
+
+Build lokaal:
+
+```sh
+docker build -t don-tools-api .
+```
+
+Run lokaal:
+
+```sh
+docker run --rm -p 1338:1338 don-tools-api
+```
+
+## Checks voor een wijziging
+
+Draai minimaal:
+
+```sh
+npm run lint
+npm run build
+npm test
+```
+
+Bij wijzigingen aan `api/openapi.yaml` of gegenereerde bestanden: controleer ook of
+`api/openapi.json`, `controllers/`, `models/` en `api/` nog overeenkomen met het contract.
+
+## Repository-indeling
+
+```text
+api/             OpenAPI contract en gegenereerde API interfaces
+app/             NestJS/Fastify bootstrap en OpenAPI middleware
+controllers/     Gegenereerde NestJS controllers
+decorators/      Gegenereerde request decorators
+implementation/  Handgeschreven adapter naar don-tools-logic
+models/          Gegenereerde request/response modellen
+test/            Vitest tests
 ```
