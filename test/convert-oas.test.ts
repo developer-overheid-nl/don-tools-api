@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import jsYaml from "js-yaml";
+import { load } from "js-yaml";
 import { convertOAS } from "@developer-overheid-nl/don-tools-logic";
 
 const toJson = (buffer: Buffer) => JSON.parse(buffer.toString("utf8"));
-const toYaml = (buffer: Buffer) => jsYaml.load(buffer.toString("utf8")) as Record<string, unknown>;
+const toYaml = (buffer: Buffer) => load(buffer.toString("utf8")) as Record<string, unknown>;
 
 describe("convertOAS", () => {
   it("upgrades 3.0 -> 3.1 (JSON)", async () => {
