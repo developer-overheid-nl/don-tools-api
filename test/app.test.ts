@@ -59,4 +59,29 @@ describe("app", () => {
     expect(response.headers["content-type"]).toContain("application/json");
     expect(JSON.parse(response.body)).toMatchObject({ openapi: "3.1.0" });
   });
+
+  it("returns generated OpenAPI directly", async () => {
+    const response = await inject({
+      method: "POST",
+      url: "/v1/oas/generate",
+      payload: {
+        oasBody: JSON.stringify({
+          title: "Generated API",
+          description: "Generated API description",
+          contact: { name: "DON", email: "don@example.com", url: "https://developer.overheid.nl" },
+          resources: [{ name: "item", plural: "items", readonly: true }],
+        }),
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/json");
+    expect(response.headers["content-disposition"]).toBe('attachment; filename="generated-api.json"');
+    expect(JSON.parse(response.body)).toMatchObject({
+      openapi: "3.0.2",
+      info: { title: "Generated API" },
+      paths: { "/items": expect.any(Object) },
+    });
+    expect(JSON.parse(response.body)).not.toHaveProperty("rawBody");
+  });
 });
