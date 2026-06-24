@@ -1,4 +1,3 @@
-export interface ModelsKeycloakClientResult { 
+export interface ModelsKeycloakClientResult {
   apiKey?: string;
 }
-

@@ -1,9 +1,9 @@
 import "reflect-metadata";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Module } from "@nestjs/common";
+import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
+import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import cors from "@fastify/cors";
 import addFormats from "ajv-formats";
 import { OpenAPIBackend } from "openapi-backend";
@@ -100,7 +100,9 @@ const toProblem = (status: number, title: string, errors?: ProblemError[]) => ({
 
 const toProblemErrors = (errors: ValidationError[] | undefined): ProblemError[] | undefined => {
   if (!errors?.length) return undefined;
-  const bodyErrors = errors.filter((error) => ["body", "requestBody"].includes(error.instancePath?.split("/").filter(Boolean)[0] ?? ""));
+  const bodyErrors = errors.filter((error) =>
+    ["body", "requestBody"].includes(error.instancePath?.split("/").filter(Boolean)[0] ?? ""),
+  );
   if (bodyErrors.length > 0) {
     return [
       {
@@ -113,7 +115,8 @@ const toProblemErrors = (errors: ValidationError[] | undefined): ProblemError[] 
   }
 
   return errors.map((error) => {
-    const params = typeof error.params === "object" && error.params !== null ? (error.params as Record<string, unknown>) : {};
+    const params =
+      typeof error.params === "object" && error.params !== null ? (error.params as Record<string, unknown>) : {};
     const additionalProperty = typeof params.additionalProperty === "string" ? params.additionalProperty : undefined;
     const location = additionalProperty ?? error.instancePath?.split("/").filter(Boolean).pop() ?? "";
     const source = error.instancePath?.split("/").filter(Boolean)[0] ?? "";
@@ -151,7 +154,11 @@ const resolveRef = (document: unknown, value: unknown): unknown => {
   return resolveJsonPointer(document, value.$ref) ?? value;
 };
 
-const getResponseObject = (document: unknown, operation: RuntimeOperation | undefined, statusCode: number): Record<string, unknown> | undefined => {
+const getResponseObject = (
+  document: unknown,
+  operation: RuntimeOperation | undefined,
+  statusCode: number,
+): Record<string, unknown> | undefined => {
   if (!operation?.responses) return undefined;
   const responses = operation.responses;
   const response = responses[String(statusCode)] ?? responses[`${Math.floor(statusCode / 100)}XX`] ?? responses.default;
@@ -184,7 +191,10 @@ const acceptsMediaType = (acceptHeader: unknown, mediaType: string): boolean => 
     .some((accepted) => mediaTypeMatches(mediaType, accepted));
 };
 
-const chooseResponseContentType = (request: RuntimeRequest, responseObject: Record<string, unknown> | undefined): string | undefined => {
+const chooseResponseContentType = (
+  request: RuntimeRequest,
+  responseObject: Record<string, unknown> | undefined,
+): string | undefined => {
   const contentTypes = getResponseContentTypes(responseObject);
   if (contentTypes.length === 0) return undefined;
   return contentTypes.find((mediaType) => acceptsMediaType(request.headers.accept, mediaType)) ?? contentTypes[0];
@@ -240,7 +250,12 @@ const mockFromSchema = (document: unknown, schema: unknown, seen = new Set<unkno
   if (schemaType === "array") return [mockFromSchema(document, resolvedSchema.items, seen)];
   if (schemaType === "object" || isRecord(resolvedSchema.properties)) {
     const properties = isRecord(resolvedSchema.properties) ? resolvedSchema.properties : {};
-    return Object.fromEntries(Object.entries(properties).map(([name, propertySchema]) => [name, mockFromSchema(document, propertySchema, seen)]));
+    return Object.fromEntries(
+      Object.entries(properties).map(([name, propertySchema]) => [
+        name,
+        mockFromSchema(document, propertySchema, seen),
+      ]),
+    );
   }
   if (schemaType === "integer" || schemaType === "number") return 0;
   if (schemaType === "boolean") return true;
@@ -327,9 +342,14 @@ const buildPaginationLink = (request: RuntimeRequest): string => {
   return [`<${withPage(1)}>; rel="first"`, `<${withPage(totalPages)}>; rel="last"`].join(", ");
 };
 
-const mockPagination = (request: RuntimeRequest): { currentPage: number; perPage: number; totalPages: number; totalCount: number } => {
+const mockPagination = (
+  request: RuntimeRequest,
+): { currentPage: number; perPage: number; totalPages: number; totalCount: number } => {
   const currentPage = Math.max(Number.parseInt(firstQueryValue(request.query, ["page", "Page"]) ?? "1", 10) || 1, 1);
-  const perPage = Math.max(Number.parseInt(firstQueryValue(request.query, ["perPage", "PerPage"]) ?? "20", 10) || 20, 1);
+  const perPage = Math.max(
+    Number.parseInt(firstQueryValue(request.query, ["perPage", "PerPage"]) ?? "20", 10) || 20,
+    1,
+  );
   const totalPages = Math.max(currentPage, 1);
   return {
     currentPage,
@@ -339,7 +359,12 @@ const mockPagination = (request: RuntimeRequest): { currentPage: number; perPage
   };
 };
 
-const mockHeaderValue = (name: string, schema: unknown, request: RuntimeRequest, apiVersion: string | undefined): string => {
+const mockHeaderValue = (
+  name: string,
+  schema: unknown,
+  request: RuntimeRequest,
+  apiVersion: string | undefined,
+): string => {
   const normalizedName = name.toLowerCase();
   const pagination = mockPagination(request);
   if (normalizedName === "api-version") return apiVersion ?? "1.0.0";
@@ -348,7 +373,8 @@ const mockHeaderValue = (name: string, schema: unknown, request: RuntimeRequest,
   if (normalizedName === "current-page") return String(pagination.currentPage);
   if (normalizedName === "per-page") return String(pagination.perPage);
   if (normalizedName === "total-pages") return String(pagination.totalPages);
-  if (normalizedName === "oas-version") return firstPathValue(request.params, ["version", "oasVersion", "OASVersion"]) ?? "mock";
+  if (normalizedName === "oas-version")
+    return firstPathValue(request.params, ["version", "oasVersion", "OASVersion"]) ?? "mock";
   if (normalizedName === "oas-source") return "mock";
 
   const schemaType = getSchemaType(schema);
@@ -438,7 +464,9 @@ const mediaTypeMatches = (actual: string, expected: string): boolean => {
   const [actualType, actualSubtype] = normalizedActual.split("/");
   if (!expectedType || !expectedSubtype || !actualType || !actualSubtype) return false;
   if (expectedSubtype === "*") return expectedType === actualType;
-  return expectedSubtype.startsWith("*+") && actualSubtype.endsWith(expectedSubtype.slice(1)) && expectedType === actualType;
+  return (
+    expectedSubtype.startsWith("*+") && actualSubtype.endsWith(expectedSubtype.slice(1)) && expectedType === actualType
+  );
 };
 
 const hasUnsupportedRequestMediaType = (operation: RuntimeOperation, contentType: unknown, body: unknown): boolean => {
@@ -462,7 +490,6 @@ const chooseDeclaredResponseStatus = (operation: RuntimeOperation | undefined, s
 class ProblemDetailsFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const context = host.switchToHttp();
-    const request = context.getRequest<{ url?: string }>();
     const reply = context.getResponse();
     const status = error instanceof HttpException ? error.getStatus() : 500;
     const response = error instanceof HttpException ? error.getResponse() : undefined;
@@ -491,7 +518,10 @@ class ProblemDetailsFilter implements ExceptionFilter {
 class AppModule {}
 
 export const createApp = async () => {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter({ bodyLimit: 14 * 1024 * 1024 }));
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ bodyLimit: 14 * 1024 * 1024 }),
+  );
   await app.register(cors);
   app.useGlobalFilters(new ProblemDetailsFilter());
 
@@ -583,7 +613,7 @@ export const createApp = async () => {
         reply as RuntimeReply,
         operation,
         status,
-          "Request validation failed",
+        "Request validation failed",
         apiVersion,
         validation.errors ?? undefined,
       );
@@ -610,7 +640,14 @@ export const createApp = async () => {
     const request = _request as RuntimeRequest & { openapiOperation?: RuntimeOperation };
     const statusCode = chooseDeclaredResponseStatus(request.openapiOperation, reply.statusCode);
     if (statusCode !== reply.statusCode) reply.status(statusCode);
-    applyDeclaredResponseMetadata(openapiDocument, request, reply as RuntimeReply, request.openapiOperation, statusCode, apiVersion);
+    applyDeclaredResponseMetadata(
+      openapiDocument,
+      request,
+      reply as RuntimeReply,
+      request.openapiOperation,
+      statusCode,
+      apiVersion,
+    );
     return payload;
   });
   fastify.addHook("onSend", async (request, reply, payload) => {
@@ -624,19 +661,23 @@ export const createApp = async () => {
     const statusCode = reply.statusCode;
     if (!isDeclaredResponseStatus(operation, statusCode)) {
       reply.status(502).type("application/problem+json");
-      return JSON.stringify(toProblem(502, `Response status ${statusCode} is not declared in the OpenAPI specification`));
+      return JSON.stringify(
+        toProblem(502, `Response status ${statusCode} is not declared in the OpenAPI specification`),
+      );
     }
 
     const contentType = reply.getHeader("content-type");
     const responseBody =
-      typeof payload === "string" && isJsonLikeContentType(contentType)
-        ? JSON.parse(payload)
-        : payload;
+      typeof payload === "string" && isJsonLikeContentType(contentType) ? JSON.parse(payload) : payload;
     const bodyValidation = openapi.validateResponse(responseBody, operationId, statusCode);
     if (!bodyValidation.valid) {
       reply.status(502).type("application/problem+json");
       return JSON.stringify(
-        toProblem(502, "Response body does not match the OpenAPI specification", toProblemErrors(bodyValidation.errors ?? undefined)),
+        toProblem(
+          502,
+          "Response body does not match the OpenAPI specification",
+          toProblemErrors(bodyValidation.errors ?? undefined),
+        ),
       );
     }
 
@@ -646,7 +687,11 @@ export const createApp = async () => {
     if (!headerValidation.valid) {
       reply.status(502).type("application/problem+json");
       return JSON.stringify(
-        toProblem(502, "Response headers do not match the OpenAPI specification", toProblemErrors(headerValidation.errors ?? undefined)),
+        toProblem(
+          502,
+          "Response headers do not match the OpenAPI specification",
+          toProblemErrors(headerValidation.errors ?? undefined),
+        ),
       );
     }
 
