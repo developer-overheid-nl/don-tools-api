@@ -57,9 +57,11 @@ export class ToolsApiService extends ToolsApi {
     return result.rawBody as unknown as void;
   }
 
-  async generateOAS(oasInput: OasInput | undefined): Promise<object> {
+  async generateOAS(oasInput: OasInput | undefined, _request: Request, reply: FastifyReply): Promise<object> {
     const { generateOAS } = await loadLogic();
-    return asBadRequest(() => generateOAS(oasInput as OasInput));
+    const result = await asBadRequest(() => generateOAS(oasInput as OasInput));
+    setHeaders(reply, result.headers);
+    return result.rawBody as unknown as object;
   }
 
   async untrustClient(untrustClientInput: UntrustedClientInput | undefined): Promise<ModelsKeycloakClientResult> {
