@@ -1,4 +1,3 @@
-export interface UntrustClientInput { 
+export interface UntrustClientInput {
   email?: string;
 }
-

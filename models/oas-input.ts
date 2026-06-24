@@ -1,4 +1,4 @@
-export interface OasInput { 
+export interface OasInput {
   oasBody?: string;
   oasUrl?: string;
   /**
@@ -6,4 +6,3 @@ export interface OasInput {
    */
   targetVersion?: string;
 }
-

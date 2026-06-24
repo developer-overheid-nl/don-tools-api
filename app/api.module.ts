@@ -1,21 +1,21 @@
-import { DynamicModule, HttpException, Module, Provider } from '@nestjs/common';
-import { ApiImplementations } from './api-implementations'
-import { ToolsApi } from '../api';
-import { ToolsApiController } from '../controllers';
+import { type DynamicModule, HttpException, Module, type Provider } from "@nestjs/common";
+import type { ApiImplementations } from "./api-implementations";
+import { ToolsApi } from "../api";
+import { ToolsApiController } from "../controllers";
 
 const createNotImplementedProvider = (apiName: string) =>
   new Proxy(
     {},
     {
       get: (_target, property) => {
-        if (typeof property !== 'string') return undefined;
+        if (typeof property !== "string") return undefined;
         if (
-          property === 'then' ||
-          property === 'onModuleInit' ||
-          property === 'onApplicationBootstrap' ||
-          property === 'onModuleDestroy' ||
-          property === 'beforeApplicationShutdown' ||
-          property === 'onApplicationShutdown'
+          property === "then" ||
+          property === "onModuleInit" ||
+          property === "onApplicationBootstrap" ||
+          property === "onModuleDestroy" ||
+          property === "beforeApplicationShutdown" ||
+          property === "onApplicationShutdown"
         ) {
           return undefined;
         }
@@ -28,38 +28,36 @@ const createNotImplementedProvider = (apiName: string) =>
 
 export type ApiModuleConfiguration = {
   /**
-  * your Api implementations
-  */
-  apiImplementations?: Partial<ApiImplementations>,
+   * your Api implementations
+   */
+  apiImplementations?: Partial<ApiImplementations>;
   /**
-  * additional Providers that may be used by your implementations
-  */
-  providers?: Provider[],
-}
+   * additional Providers that may be used by your implementations
+   */
+  providers?: Provider[];
+};
 
 @Module({})
 export class ApiModule {
   static forRoot(configuration: ApiModuleConfiguration = {}): DynamicModule {
-      const providers: Provider[] = [
-        configuration.apiImplementations?.toolsApi
-          ? {
-              provide: ToolsApi,
-              useClass: configuration.apiImplementations.toolsApi,
-            }
-          : {
-              provide: ToolsApi,
-              useValue: createNotImplementedProvider('ToolsApi'),
-            },
-        ...(configuration.providers || []),
-      ];
+    const providers: Provider[] = [
+      configuration.apiImplementations?.toolsApi
+        ? {
+            provide: ToolsApi,
+            useClass: configuration.apiImplementations.toolsApi,
+          }
+        : {
+            provide: ToolsApi,
+            useValue: createNotImplementedProvider("ToolsApi"),
+          },
+      ...(configuration.providers || []),
+    ];
 
-      return {
-        module: ApiModule,
-        controllers: [
-          ToolsApiController,
-        ],
-        providers: [...providers],
-        exports: [...providers]
-      }
-    }
+    return {
+      module: ApiModule,
+      controllers: [ToolsApiController],
+      providers: [...providers],
+      exports: [...providers],
+    };
+  }
 }

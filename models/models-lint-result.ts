@@ -1,4 +1,4 @@
-export interface ModelsLintResult { 
+export interface ModelsLintResult {
   apiId?: string;
   createdAt?: string;
   failures?: number;
@@ -11,4 +11,3 @@ export interface ModelsLintResult {
    */
   rulesetVersion?: string;
 }
-

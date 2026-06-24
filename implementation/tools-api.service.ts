@@ -40,21 +40,21 @@ export class ToolsApiService extends ToolsApi {
     const { bundleOAS } = await loadLogic();
     const result = await asBadRequest(() => bundleOAS(oasInput as OasInput));
     setHeaders(reply, result.headers);
-    return result.rawBody as unknown as void;
+    return result.rawBody as never;
   }
 
   async convertOAS(oasInput: OasInput | undefined, _request: Request, reply: FastifyReply): Promise<void> {
     const { convertOAS } = await loadLogic();
     const result = await asBadRequest(() => convertOAS(oasInput as OasInput));
     setHeaders(reply, result.headers);
-    return result.rawBody as unknown as void;
+    return result.rawBody as never;
   }
 
   async createPostmanCollection(oasInput: OasInput | undefined, _request: Request, reply: FastifyReply): Promise<void> {
     const { createPostmanCollection } = await loadLogic();
     const result = await asBadRequest(() => createPostmanCollection(oasInput as OasInput));
     setHeaders(reply, result.headers);
-    return result.rawBody as unknown as void;
+    return result.rawBody as never;
   }
 
   async generateOAS(oasInput: OasInput | undefined, _request: Request, reply: FastifyReply): Promise<object> {
@@ -66,7 +66,9 @@ export class ToolsApiService extends ToolsApi {
 
   async untrustClient(untrustClientInput: UntrustedClientInput | undefined): Promise<ModelsKeycloakClientResult> {
     const { untrustedClient } = await loadLogic();
-    return asBadRequest(() => untrustedClient(untrustClientInput as UntrustedClientInput)) as Promise<ModelsKeycloakClientResult>;
+    return asBadRequest(() =>
+      untrustedClient(untrustClientInput as UntrustedClientInput),
+    ) as Promise<ModelsKeycloakClientResult>;
   }
 
   async validatorOpenAPIPost(oasInput: OasInput | undefined): Promise<ModelsLintResult> {
