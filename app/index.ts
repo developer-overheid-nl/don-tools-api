@@ -561,9 +561,11 @@ export const createApp = async () => {
   fastify.addHook("preValidation", async (request, reply) => {
     if (isGeneratedOpenApiEndpoint(request.url)) return;
 
+    const requestPath = request.url.split("?")[0] ?? request.url;
+
     const openapiRequest: RuntimeOpenAPIRequest = {
       method: request.method,
-      path: request.url,
+      path: requestPath,
       body: request.body,
       query: request.query as Record<string, string | string[]> | string | undefined,
       headers: toHeaderRecord(request.headers),
@@ -668,7 +670,9 @@ export const createApp = async () => {
 
     const contentType = reply.getHeader("content-type");
     const responseBody =
-      typeof payload === "string" && isJsonLikeContentType(contentType) ? JSON.parse(payload) : payload;
+      isJsonLikeContentType(contentType) && (typeof payload === "string" || payload instanceof Uint8Array)
+        ? JSON.parse(Buffer.from(payload).toString("utf8"))
+        : payload;
     const bodyValidation = openapi.validateResponse(responseBody, operationId, statusCode);
     if (!bodyValidation.valid) {
       reply.status(502).type("application/problem+json");

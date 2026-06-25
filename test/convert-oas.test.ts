@@ -51,4 +51,21 @@ components:
     expect(result.headers["Content-Disposition"]).toBe('attachment; filename="openapi-3-1-0.yaml"');
     expect((converted as { openapi: string }).openapi).toBe("3.1.0");
   });
+
+  it("downgrades 3.1 -> 3.0 (JSON)", async () => {
+    const sourceSpec = { openapi: "3.1.0", info: { title: "Test API", version: "1.0.0" }, paths: {}, webhooks: { onEvent: { post: { responses: { 200: { description: "OK" } } } } }, components: { schemas: { Pet: { type: "object", properties: { nickname: { type: ["string", "null"] } } } } } };
+    const result = await convertOAS({ oasBody: JSON.stringify(sourceSpec), targetVersion: "3.0" });
+    const converted = toJson(result.rawBody);
+    expect(converted.openapi).toBe("3.0.3");
+    expect(Object.hasOwn(converted, "webhooks")).toBe(false);
+    expect(converted.components.schemas.Pet.properties.nickname.type).toBe("string");
+    expect(converted.components.schemas.Pet.properties.nickname.nullable).toBe(true);
+  });
+
+  it("keeps existing 3.1 patch version when targetVersion is omitted", async () => {
+    const sourceSpec = { openapi: "3.1.2", info: { title: "Test API", version: "1.0.0" }, paths: {} };
+    const result = await convertOAS({ oasBody: JSON.stringify(sourceSpec) });
+    expect(toJson(result.rawBody).openapi).toBe("3.1.2");
+    expect(result.headers["Content-Disposition"]).toBe('attachment; filename="openapi-3-1-2.json"');
+  });
 });
