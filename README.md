@@ -11,17 +11,16 @@ businesslogica staat in `@developer-overheid-nl/don-tools-logic` en wordt los be
 
 - NestJS met Fastify als HTTP runtime
 - OpenAPI request- en responsevalidatie via `openapi-backend`
-- Gegenereerde controller- en modelbestanden op basis van `api/openapi.yaml`
+- Gegenereerde controller- en modelbestanden op basis van `api/openapi.json`
 - Implementatie-adapter in `implementation/tools-api.service.ts`
 - Docker image voor deployment op poort `1338`
 
 ## Endpoints
 
-De OpenAPI-specificatie staat in `api/openapi.yaml` en `api/openapi.json`.
+De OpenAPI-specificatie staat in `api/openapi.json`.
 
-Bij runtime worden deze ook beschikbaar gemaakt op:
+Bij runtime wordt deze ook beschikbaar gemaakt op:
 
-- `GET /openapi.yaml`
 - `GET /openapi.json`
 
 Belangrijkste tools-endpoints:
@@ -111,8 +110,8 @@ npm run build
 npm test
 ```
 
-Bij wijzigingen aan `api/openapi.yaml` of gegenereerde bestanden: controleer ook of
-`api/openapi.json`, `controllers/`, `models/` en `api/` nog overeenkomen met het contract.
+Bij wijzigingen aan `api/openapi.json` of gegenereerde bestanden: controleer ook of
+`controllers/`, `models/` en `api/` nog overeenkomen met het contract.
 
 ## Repository-indeling
 

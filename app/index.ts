@@ -12,8 +12,6 @@ import type Ajv from "ajv";
 import { ApiModule } from "./api.module";
 import { ToolsApiService } from "../implementation/tools-api.service";
 
-const yaml = require("js-yaml") as { load(input: string): unknown };
-
 type RuntimeOpenAPIRequest = OpenAPIRequest & {
   path: string;
 };
@@ -525,8 +523,7 @@ export const createApp = async () => {
   await app.register(cors);
   app.useGlobalFilters(new ProblemDetailsFilter());
 
-  const openapiYaml = readFileSync(join(process.cwd(), "api", "openapi.yaml"), "utf8");
-  const openapiDocument = yaml.load(openapiYaml);
+  const openapiDocument = JSON.parse(readFileSync(join(process.cwd(), "api", "openapi.json"), "utf8")) as unknown;
   const openapi = new OpenAPIBackend({
     definition: openapiDocument as never,
     quick: true,
@@ -552,7 +549,6 @@ export const createApp = async () => {
     pathPattern: openApiPathToRegExp(operation.path),
   }));
   const generatedOpenApiPaths = new Set<string>();
-  if (!hasOpenApiPath(openapiDocument, "/openapi.yaml")) generatedOpenApiPaths.add("/openapi.yaml");
   if (!hasOpenApiPath(openapiDocument, "/openapi.json")) generatedOpenApiPaths.add("/openapi.json");
   const isGeneratedOpenApiEndpoint = (path: string): boolean => generatedOpenApiPaths.has(path.split("?")[0] ?? path);
 
@@ -701,9 +697,6 @@ export const createApp = async () => {
 
     return payload;
   });
-  if (generatedOpenApiPaths.has("/openapi.yaml")) {
-    fastify.get("/openapi.yaml", async (_request, reply) => reply.type("text/yaml; charset=utf-8").send(openapiYaml));
-  }
   if (generatedOpenApiPaths.has("/openapi.json")) {
     fastify.get("/openapi.json", async () => openapiDocument);
   }
