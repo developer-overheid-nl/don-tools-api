@@ -61,7 +61,7 @@ export class ToolsApiService extends ToolsApi {
     const { generateOAS } = await loadLogic();
     const result = await asBadRequest(() => generateOAS(oasInput as OasInput));
     setHeaders(reply, result.headers);
-    return result.rawBody as unknown as object;
+    return JSON.parse(Buffer.from(result.rawBody).toString("utf8")) as object;
   }
 
   async untrustClient(untrustClientInput: UntrustedClientInput | undefined): Promise<ModelsKeycloakClientResult> {
