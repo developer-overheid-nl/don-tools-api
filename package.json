@@ -18,7 +18,7 @@
   "license": "EUPL-1.2",
   "private": true,
   "dependencies": {
-    "@developer-overheid-nl/don-tools": "git+https://github.com/developer-overheid-nl/don-tools.git#d3d54ba222717d070b8d1ddd7689713dd0aaab26",
+    "@developer-overheid-nl/don-tools-logic": "^0.0.2",
     "@fastify/cors": "^11.2.0",
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",

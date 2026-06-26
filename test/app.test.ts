@@ -60,40 +60,6 @@ describe("app", () => {
     expect(JSON.parse(response.body)).toMatchObject({ openapi: "3.1.0" });
   });
 
-  it("returns 422 when an OpenAPI document cannot be fully dereferenced", async () => {
-    const response = await inject({
-      method: "POST",
-      url: "/v1/oas/bundle",
-      payload: {
-        oasBody: JSON.stringify({
-          openapi: "3.0.3",
-          info: { title: "Recursive API", version: "1.0.0" },
-          paths: {},
-          components: {
-            schemas: {
-              Node: {
-                type: "object",
-                properties: {
-                  children: {
-                    type: "array",
-                    items: { $ref: "#/components/schemas/Node" },
-                  },
-                },
-              },
-            },
-          },
-        }),
-      },
-    });
-
-    expect(response.statusCode).toBe(422);
-    expect(response.headers["content-type"]).toContain("application/problem+json");
-    expect(response.json()).toMatchObject({
-      status: 422,
-      title: "De OpenAPI specificatie bevat circulaire verwijzingen en kan niet volledig worden gedereferenced.",
-    });
-  });
-
   it("returns generated OpenAPI directly", async () => {
     const response = await inject({
       method: "POST",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { convertOAS } from "@developer-overheid-nl/don-tools";
+import { convertOAS } from "@developer-overheid-nl/don-tools-logic";
 
 const toJson = (buffer: Buffer) => JSON.parse(buffer.toString("utf8"));
 const toYaml = (buffer: Buffer) => load(buffer.toString("utf8")) as Record<string, unknown>;
@@ -53,13 +53,7 @@ components:
   });
 
   it("downgrades 3.1 -> 3.0 (JSON)", async () => {
-    const sourceSpec = {
-      openapi: "3.1.0",
-      info: { title: "Test API", version: "1.0.0" },
-      paths: {},
-      webhooks: { onEvent: { post: { responses: { 200: { description: "OK" } } } } },
-      components: { schemas: { Pet: { type: "object", properties: { nickname: { type: ["string", "null"] } } } } },
-    };
+    const sourceSpec = { openapi: "3.1.0", info: { title: "Test API", version: "1.0.0" }, paths: {}, webhooks: { onEvent: { post: { responses: { 200: { description: "OK" } } } } }, components: { schemas: { Pet: { type: "object", properties: { nickname: { type: ["string", "null"] } } } } } };
     const result = await convertOAS({ oasBody: JSON.stringify(sourceSpec), targetVersion: "3.0" });
     const converted = toJson(result.rawBody);
     expect(converted.openapi).toBe("3.0.3");
