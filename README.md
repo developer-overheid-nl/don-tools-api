@@ -4,8 +4,7 @@ HTTP API voor de tools op `developer.overheid.nl`.
 
 Deze repository bevat de API-laag voor versie 1 van de Tools API: routing, OpenAPI-validatie,
 response headers, foutafhandeling en de koppeling naar de daadwerkelijke businesslogica. Die
-businesslogica staat in `@developer-overheid-nl/don-tools-logic` en wordt los beheerd in
-`don-tools-api-v2`.
+businesslogica staat in `@developer-overheid-nl/don-tools` en wordt los beheerd in `don-tools`.
 
 ## Wat zit hierin?
 
@@ -72,15 +71,15 @@ Mock mode kan ook direct via:
 npm run dev-mock
 ```
 
-## Relatie met `don-tools-api-v2`
+## Relatie met `don-tools`
 
 `don-tools-api` is de v1 HTTP-adapter. De herbruikbare logica zit in
-`@developer-overheid-nl/don-tools-logic`.
+`@developer-overheid-nl/don-tools`.
 
 Zodra de logic package op npm gepubliceerd is, pin deze API op een expliciete packageversie:
 
 ```sh
-npm install @developer-overheid-nl/don-tools-logic@<version>
+npm install @developer-overheid-nl/don-tools@<version>
 ```
 
 Gebruik liever een npm-versie dan een GitHub dependency in CI/CD. Dat voorkomt dat builds afhankelijk
@@ -120,7 +119,7 @@ api/             OpenAPI contract en gegenereerde API interfaces
 app/             NestJS/Fastify bootstrap en OpenAPI middleware
 controllers/     Gegenereerde NestJS controllers
 decorators/      Gegenereerde request decorators
-implementation/  Handgeschreven adapter naar don-tools-logic
+implementation/  Handgeschreven adapter naar don-tools
 models/          Gegenereerde request/response modellen
 test/            Vitest tests
 ```
