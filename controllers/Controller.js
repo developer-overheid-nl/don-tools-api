@@ -54,7 +54,7 @@ class Controller {
   static sendError(response, error) {
     const status = error.code || 500;
     const reason = error.message || error.error?.message || "Unexpected error";
-    const detail = error.detail || reason;
+    const detail = error.detail || error.error?.detail || reason;
     let invalidParams = [];
     if (Array.isArray(error.invalidParams)) {
       invalidParams = error.invalidParams;

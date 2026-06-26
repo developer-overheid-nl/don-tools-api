@@ -4,13 +4,14 @@ const path = require("node:path");
 const { URL } = require("node:url");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
-const jsYaml = require("js-yaml");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
 const { sanitizeFileName } = require("../utils/fileName");
 const logger = require("../logger");
 
 const DEFAULT_FILENAME = "openapi";
+const CIRCULAR_DEREFERENCE_MESSAGE =
+  "De OpenAPI specificatie bevat circulaire verwijzingen en kan niet volledig worden gedereferenced.";
 const REDOCLY_BIN = require.resolve("@redocly/cli/bin/cli");
 const execFileAsync = promisify(execFile);
 
@@ -55,18 +56,15 @@ const deriveDocumentName = (doc, source) => {
 };
 
 const runRedoclyBundle = async (inputPath, outputPath, ext) => {
-  const args = [
-    REDOCLY_BIN,
-    "bundle",
-    inputPath,
-    "--output",
-    outputPath,
-    "--ext",
-    ext,
-    "--dereferenced",
-  ];
+  const args = [REDOCLY_BIN, "bundle", inputPath, "--output", outputPath, "--ext", ext, "--dereferenced"];
   return execFileAsync(process.execPath, args, { maxBuffer: 20 * 1024 * 1024 });
 };
+
+const formatCommandError = (error) =>
+  [error?.stderr, error?.stdout, error?.message]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join("\n")
+    .trim();
 
 const bundle = async (input) => {
   const resolved = await resolveOasInput(input);
@@ -87,7 +85,7 @@ const bundle = async (input) => {
 
   let bundledText;
   let document;
-  let outputExt = "json";
+  const outputExt = "json";
   try {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "oas-bundle-"));
     await fs.writeFile(inputPath(), contents, "utf8");
@@ -96,20 +94,26 @@ const bundle = async (input) => {
       bundledText = await fs.readFile(outputPath("json"), "utf8");
       document = JSON.parse(bundledText);
     } catch (jsonError) {
-      const errText = `${jsonError?.stderr || ""}${jsonError?.stdout || ""}${jsonError?.message || ""}`;
+      const errText = formatCommandError(jsonError);
       const hasCircular = errText.toLowerCase().includes("circular reference");
       if (!hasCircular) {
         throw jsonError;
       }
-      logger.warn("[OasBundleService] JSON bundle failed due to circular refs, retrying with YAML", {
-        message: jsonError?.message,
+      logger.warn("[OasBundleService] JSON bundle failed due to circular refs", {
+        detail: errText || jsonError?.message,
       });
-      outputExt = "yaml";
-      await runRedoclyBundle(inputPath(), outputPath("yaml"), "yaml");
-      bundledText = await fs.readFile(outputPath("yaml"), "utf8");
-      document = jsYaml.load(bundledText);
+      throw Service.rejectResponse(
+        {
+          message: CIRCULAR_DEREFERENCE_MESSAGE,
+          detail: errText || jsonError?.message || CIRCULAR_DEREFERENCE_MESSAGE,
+        },
+        422,
+      );
     }
   } catch (error) {
+    if (Service.isErrorResponse(error)) {
+      throw error;
+    }
     logger.error("[OasBundleService] bundle failed via redocly CLI", {
       message: error?.message,
       stack: error?.stack,
