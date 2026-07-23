@@ -7,7 +7,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  IMAGE_NAME: ghcr.io/developer-overheid-nl/don-api-tools
   INFRA_REPO: ${{ vars.INFRA_REPO }}
   KUSTOMIZE_PATH: ${{ vars.KUSTOMIZE_PATH }}
   DEPLOY_ENV: prod
