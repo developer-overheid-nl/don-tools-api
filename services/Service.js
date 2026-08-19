@@ -3,6 +3,15 @@ const path = require("node:path");
 const config = require("../config");
 const logger = require("../logger");
 
+const sanitizeErrorStack = (stack, message) => {
+  const stackLines = typeof stack === "string" ? stack.split("\n") : [];
+  const firstFrame = stackLines.findIndex((line) => /^\s+at /.test(line));
+  if (firstFrame >= 0) {
+    return [`Error: ${message}`, ...stackLines.slice(firstFrame)].join("\n");
+  }
+  return new Error(message).stack;
+};
+
 const logMockEvent = (level, event, message, mockService, operationId, metadata = {}) => {
   logger.log(level, message, {
     event,
@@ -14,10 +23,8 @@ const logMockEvent = (level, event, message, mockService, operationId, metadata 
 
 class Service {
   static rejectResponse(error, code = 500, cause = undefined) {
-    const stack =
-      code >= 500
-        ? cause?.stack || error?.stack || new Error(error?.message || "Service request failed").stack
-        : undefined;
+    const safeMessage = error?.message || "Service request failed";
+    const stack = code >= 500 ? sanitizeErrorStack(cause?.stack || error?.stack, safeMessage) : undefined;
     return {
       error,
       code,

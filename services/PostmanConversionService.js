@@ -33,7 +33,7 @@ const convert = async (input) => {
     }
     throw Service.rejectResponse(
       {
-        message: error.message || "Er is een fout opgetreden tijdens het lezen van de input.",
+        message: "Er is een fout opgetreden tijdens het lezen van de input.",
       },
       500,
       error,
@@ -51,7 +51,7 @@ const convert = async (input) => {
   } catch (error) {
     throw Service.rejectResponse(
       {
-        message: error.message || "Conversie naar Postman is mislukt.",
+        message: "Conversie naar Postman is mislukt.",
       },
       500,
       error,

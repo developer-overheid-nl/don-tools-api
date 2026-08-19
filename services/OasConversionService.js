@@ -29,8 +29,8 @@ const parseSpecification = (contents) => {
         throw new Error("Ongeldig OpenAPI document");
       }
       return { spec, format: "yaml" };
-    } catch (yamlError) {
-      throw new Error(`Kan OpenAPI specificatie niet parseren: ${yamlError.message}`);
+    } catch (_yamlError) {
+      throw new Error("Kan OpenAPI specificatie niet parseren.");
     }
   }
 };
@@ -164,7 +164,7 @@ const convert = async (input) => {
   } catch (error) {
     if (Service.isErrorResponse(error)) throw error;
     throw Service.rejectResponse(
-      { message: error.message || "Er is een fout opgetreden tijdens het converteren." },
+      { message: "Er is een fout opgetreden tijdens het converteren." },
       500,
       error,
     );

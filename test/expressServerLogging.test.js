@@ -8,6 +8,7 @@ const config = require("../config");
 const ExpressServer = require("../expressServer");
 const logger = require("../logger");
 const Service = require("../services/Service");
+const { ERROR_CODES, KeycloakError, translateKeycloakError } = require("../services/KeycloakService");
 
 const openApiPath = path.resolve(__dirname, "../api/openapi.json");
 
@@ -222,15 +223,16 @@ test("a service exception is not logged again while propagating to the HTTP boun
   t.after(() => close(server));
 
   const { port } = server.address();
+  const bodySecret = "body-secret-9K3";
   const response = await fetch(`http://127.0.0.1:${port}/v1/oas/convert`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-request-id": "service-failure",
     },
-    body: JSON.stringify({ oasBody: "{" }),
+    body: JSON.stringify({ oasBody: `openapi: [${bodySecret}` }),
   });
-  await response.arrayBuffer();
+  const responseBody = await response.text();
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(response.status, 500);
@@ -238,8 +240,30 @@ test("a service exception is not logged again while propagating to the HTTP boun
   assert.equal(records[0].event, "http.request.completed");
   assert.equal(records[0].level, "error");
   assert.equal(records[0].requestId, "service-failure");
-  assert.match(records[0].error.message, /OpenAPI specificatie niet parseren/);
-  assert.match(records[0].error.stack, /^Error: Kan OpenAPI specificatie niet parseren/);
+  assert.equal(records[0].error.message, "Kan OpenAPI specificatie niet parseren.");
+  assert.match(records[0].error.stack, /^Error: Kan OpenAPI specificatie niet parseren\./);
+  assert.doesNotMatch(responseBody, new RegExp(bodySecret));
+  assert.doesNotMatch(JSON.stringify(records), new RegExp(bodySecret));
+});
+
+test("5xx service stacks retain frames without retaining a sensitive cause message", () => {
+  const causeSecret = "cause-secret-7P2";
+  const cause = new Error(`Parser failed near ${causeSecret}\n1 | ${causeSecret}`);
+
+  const rejected = Service.rejectResponse({ message: "Veilige foutmelding." }, 500, cause);
+
+  assert.match(rejected.stack, /^Error: Veilige foutmelding\.\n\s+at /);
+  assert.doesNotMatch(rejected.stack, new RegExp(causeSecret));
+});
+
+test("generic Keycloak failures map upstream details to a stable safe message", () => {
+  const upstreamSecret = "keycloak-upstream-secret-4M8";
+  const error = new KeycloakError(`Keycloak response 500: ${upstreamSecret}`, ERROR_CODES.GENERIC);
+
+  const mapped = translateKeycloakError(error);
+
+  assert.deepEqual(mapped, { status: 500, message: "Er is een fout opgetreden bij Keycloak." });
+  assert.doesNotMatch(JSON.stringify(mapped), new RegExp(upstreamSecret));
 });
 
 test("middleware failures add structured error context to the request record", async (t) => {

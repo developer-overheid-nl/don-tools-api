@@ -146,7 +146,7 @@ const translateKeycloakError = (error) => {
     case ERROR_CODES.CLIENT_ID_MISSING:
       return { status: 400, message: "clientId ontbreekt of is ongeldig" };
     default:
-      return { status: 500, message: error.message || "Er is een fout opgetreden bij Keycloak." };
+      return { status: 500, message: "Er is een fout opgetreden bij Keycloak." };
   }
 };
 
