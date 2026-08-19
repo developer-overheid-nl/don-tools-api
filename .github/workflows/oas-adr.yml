@@ -3,7 +3,8 @@ name: OAS ADR validation
 on:
   pull_request:
     paths:
-      - "api/openapi.json"
+      - "api/openapi.yaml"
+      - "scripts/generate-api.mjs"
       - ".github/workflows/oas-adr.yml"
   workflow_dispatch:
 
@@ -15,17 +16,18 @@ jobs:
     name: Validate OpenAPI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
 
       - name: Validate OpenAPI against DON ADR
         run: |
-          npx -y @developer-overheid-nl/don-checker@latest validate \
-            --ruleset adr-21 \
-            --input api/openapi.json \
+          npx -y @developer-overheid-nl/don-checker@1.1.0 validate \
+            --standard adr \
+            --version 2.1.0 \
+            --input api/openapi.yaml \
             --format table \
             --fail-on error

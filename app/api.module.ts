@@ -1,7 +1,7 @@
 import { type DynamicModule, HttpException, Module, type Provider } from "@nestjs/common";
-import type { ApiImplementations } from "./api-implementations";
 import { ToolsApi } from "../api";
 import { ToolsApiController } from "../controllers";
+import type { ApiImplementations } from "./api-implementations";
 
 const createNotImplementedProvider = (apiName: string) =>
   new Proxy(

@@ -1,16 +1,19 @@
 import "reflect-metadata";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import cors from "@fastify/cors";
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
-import cors from "@fastify/cors";
-import addFormats from "ajv-formats";
-import { OpenAPIBackend } from "openapi-backend";
-import type { Operation, Request as OpenAPIRequest } from "openapi-backend";
 import type Ajv from "ajv";
+import addFormats from "ajv-formats";
+import type { Request as OpenAPIRequest, Operation } from "openapi-backend";
+import { OpenAPIBackend } from "openapi-backend";
+import { apiImplementations } from "../implementation";
 import { ApiModule } from "./api.module";
-import { ToolsApiService } from "../implementation/tools-api.service";
+import { createFastifyOptions, NestPinoLogger, registerRequestLogging } from "./logging";
+
+const yaml = require("js-yaml") as { load(input: string): unknown };
 
 type RuntimeOpenAPIRequest = OpenAPIRequest & {
   path: string;
@@ -488,42 +491,44 @@ const chooseDeclaredResponseStatus = (operation: RuntimeOperation | undefined, s
 class ProblemDetailsFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const context = host.switchToHttp();
+    const request = context.getRequest<RuntimeRequest>();
     const reply = context.getResponse();
     const status = error instanceof HttpException ? error.getStatus() : 500;
     const response = error instanceof HttpException ? error.getResponse() : undefined;
     const detail =
-      typeof response === "object" && response !== null && "message" in response
-        ? Array.isArray((response as { message?: unknown }).message)
-          ? (response as { message: unknown[] }).message.join(", ")
-          : String((response as { message?: unknown }).message)
-        : error instanceof Error
-          ? error.message
-          : statusText(status);
+      status >= 500
+        ? statusText(status)
+        : typeof response === "object" && response !== null && "message" in response
+          ? Array.isArray((response as { message?: unknown }).message)
+            ? (response as { message: unknown[] }).message.join(", ")
+            : String((response as { message?: unknown }).message)
+          : error instanceof Error
+            ? error.message
+            : statusText(status);
+    const requestPath = request.url.split("?")[0] ?? request.url;
+    const safeDetail = request.url === requestPath ? detail : detail.replace(request.url, requestPath);
 
-    reply.status(status).type("application/problem+json").send(toProblem(status, detail));
+    reply.status(status).type("application/problem+json").send(toProblem(status, safeDetail));
   }
 }
 
 @Module({
-  imports: [
-    ApiModule.forRoot({
-      apiImplementations: {
-        toolsApi: ToolsApiService,
-      },
-    }),
-  ],
+  imports: [ApiModule.forRoot({ apiImplementations })],
 })
 class AppModule {}
 
-export const createApp = async () => {
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({ bodyLimit: 14 * 1024 * 1024 }),
-  );
+export const createApp = async (): Promise<NestFastifyApplication> => {
+  const adapter = new FastifyAdapter({ bodyLimit: 14 * 1024 * 1024, ...createFastifyOptions() });
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, { bufferLogs: true });
+  const fastify = app.getHttpAdapter().getInstance();
+  app.useLogger(new NestPinoLogger(fastify.log));
+  app.flushLogs();
+  registerRequestLogging(fastify);
   await app.register(cors);
   app.useGlobalFilters(new ProblemDetailsFilter());
 
-  const openapiDocument = JSON.parse(readFileSync(join(process.cwd(), "api", "openapi.json"), "utf8")) as unknown;
+  const openapiYaml = readFileSync(join(process.cwd(), "api", "openapi.yaml"), "utf8");
+  const openapiDocument = yaml.load(openapiYaml);
   const openapi = new OpenAPIBackend({
     definition: openapiDocument as never,
     quick: true,
@@ -549,16 +554,14 @@ export const createApp = async () => {
     pathPattern: openApiPathToRegExp(operation.path),
   }));
   const generatedOpenApiPaths = new Set<string>();
+  if (!hasOpenApiPath(openapiDocument, "/openapi.yaml")) generatedOpenApiPaths.add("/openapi.yaml");
   if (!hasOpenApiPath(openapiDocument, "/openapi.json")) generatedOpenApiPaths.add("/openapi.json");
   const isGeneratedOpenApiEndpoint = (path: string): boolean => generatedOpenApiPaths.has(path.split("?")[0] ?? path);
-
-  const fastify = app.getHttpAdapter().getInstance();
 
   fastify.addHook("preValidation", async (request, reply) => {
     if (isGeneratedOpenApiEndpoint(request.url)) return;
 
     const requestPath = request.url.split("?")[0] ?? request.url;
-
     const openapiRequest: RuntimeOpenAPIRequest = {
       method: request.method,
       path: requestPath,
@@ -697,6 +700,9 @@ export const createApp = async () => {
 
     return payload;
   });
+  if (generatedOpenApiPaths.has("/openapi.yaml")) {
+    fastify.get("/openapi.yaml", async (_request, reply) => reply.type("text/yaml; charset=utf-8").send(openapiYaml));
+  }
   if (generatedOpenApiPaths.has("/openapi.json")) {
     fastify.get("/openapi.json", async () => openapiDocument);
   }
@@ -704,11 +710,24 @@ export const createApp = async () => {
   return app;
 };
 
-export const bootstrap = async () => {
+export const bootstrap = async (): Promise<NestFastifyApplication> => {
   const app = await createApp();
-  await app.listen(parseInt10(process.env.PORT, 1338), process.env.HOST ?? "0.0.0.0");
+  app.enableShutdownHooks(["SIGTERM", "SIGINT"], { useProcessExit: true });
+  const port = parseInt10(process.env.PORT, 1338);
+  const host = process.env.HOST ?? "0.0.0.0";
+  await app.listen(port, host);
+  app.getHttpAdapter().getInstance().log.info({ event: "application.listening", host, port });
+  return app;
 };
 
 if (require.main === module) {
-  void bootstrap();
+  void bootstrap().catch((error: unknown) => {
+    const errorName = error instanceof Error ? error.name : typeof error;
+    const errorCode =
+      typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+        ? error.code
+        : undefined;
+    process.stderr.write(`${JSON.stringify({ event: "application.startup.failed", errorName, errorCode })}\n`);
+    process.exitCode = 1;
+  });
 }
