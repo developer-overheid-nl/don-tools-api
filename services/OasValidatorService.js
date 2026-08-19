@@ -48,7 +48,6 @@ const loadSpectral = (rulesetVersion) => {
         spectral.setRuleset(module.default);
         return spectral;
       } catch (error) {
-        logger.error(`[OasValidatorService] Unable to load ruleset (${rulesetVersion}): ${error.message}`);
         spectralInstancePromises.delete(rulesetVersion);
         throw Service.rejectResponse(
           {
@@ -84,8 +83,7 @@ const resolveSpecificationInput = async (input) => {
     let parsedUrl;
     try {
       parsedUrl = new URL(oasUrl);
-    } catch (error) {
-      logger.error("[OasValidatorService] invalid oasUrl", { message: error.message });
+    } catch {
       throw Service.rejectResponse(
         {
           message: "De waarde van oasUrl is geen geldige URL.",
@@ -200,9 +198,12 @@ const resolveValidationSettings = (input) => ({
 const validate = async (input) => {
   const { contents, source } = await resolveSpecificationInput(input);
   const { rulesetVersion } = resolveValidationSettings(input);
-  logger.info(
-    `[OasValidatorService] validate using ADR ruleset ${rulesetVersion} (targetVersion=${input?.targetVersion || "default"}, source=${source})`,
-  );
+  logger.debug("OpenAPI validation started", {
+    event: "oas.validation.started",
+    rulesetVersion,
+    targetVersion: input?.targetVersion || "default",
+    sourceType: source === "request-body" ? "request-body" : "remote",
+  });
   const spectral = await loadSpectral(rulesetVersion);
   const document = new Document(contents, Parsers.Yaml, source);
   const parseDiagnostics = Array.isArray(document.diagnostics) ? document.diagnostics : [];

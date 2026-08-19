@@ -13,7 +13,7 @@ const resolveTimeoutMs = () => {
   return DEFAULT_TIMEOUT_MS;
 };
 
-const buildFetchOptions = (url) => {
+const buildFetchOptions = () => {
   const controller = new AbortController();
   const timeout = resolveTimeoutMs();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -38,7 +38,7 @@ const normalizeErrorDetail = (error) => {
 };
 
 const doFetch = async (url, { origin }) => {
-  const { options, cleanup, timeout } = buildFetchOptions(url);
+  const { options, cleanup, timeout } = buildFetchOptions();
   try {
     const headers = {};
     if (origin) {
@@ -49,7 +49,9 @@ const doFetch = async (url, { origin }) => {
     if (!response.ok) {
       const preview = await response.text().catch(() => "");
       const trimmed = preview ? preview.slice(0, 200) : "";
-      throw new Error(`Server gaf status ${response.status}${trimmed ? `: ${trimmed}` : ""}`);
+      const error = new Error(`Server gaf status ${response.status}${trimmed ? `: ${trimmed}` : ""}`);
+      error.status = response.status;
+      throw error;
     }
     return await response.text();
   } catch (error) {
@@ -63,18 +65,29 @@ const doFetch = async (url, { origin }) => {
 const fetchSpecification = async (url, { errorMessage = DEFAULT_ERROR_MESSAGE } = {}) => {
   const origin = "https://developer.overheid.nl";
   const attempts = origin ? [{ origin }, { origin: undefined }] : [{ origin: undefined }];
+  const targetUrl = new URL(url);
+  const target = {
+    origin: targetUrl.origin,
+    path: targetUrl.pathname,
+  };
   let lastError;
   for (const attempt of attempts) {
     try {
       return await doFetch(url, attempt);
     } catch (error) {
       lastError = error;
-      const detail = normalizeErrorDetail(error);
-      logger.error(
-        `[RemoteSpecificationService] fetch failed for ${url} (${attempt.origin ? "with" : "without"} Origin): ${detail}${
-          error?.stack ? ` stack=${error.stack}` : ""
-        }`,
-      );
+      logger.warn("Remote specification fetch attempt failed", {
+        event: "remote_specification.fetch_attempt.failed",
+        target,
+        withOriginHeader: Boolean(attempt.origin),
+        timeoutMs: error?.timeout,
+        error: {
+          name: error?.name || "Error",
+          ...(error?.status ? { status: error.status } : {}),
+          ...(error?.code ? { code: error.code } : {}),
+          ...(error?.type ? { type: error.type } : {}),
+        },
+      });
       // continue to next attempt
     }
   }

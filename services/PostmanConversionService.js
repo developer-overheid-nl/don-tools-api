@@ -13,7 +13,7 @@ const convertToPostman = (data) =>
         reject(error);
         return;
       }
-      if (!result || result.result !== true) {
+      if (result?.result !== true) {
         const reason =
           result && typeof result.reason === "string" ? result.reason : "Conversie naar Postman is mislukt.";
         reject(new Error(reason));
@@ -59,7 +59,7 @@ const convert = async (input) => {
   const collectionOutput = Array.isArray(conversionResult.output)
     ? conversionResult.output.find((item) => item.type === "collection")
     : null;
-  if (!collectionOutput || !collectionOutput.data) {
+  if (!collectionOutput?.data) {
     throw Service.rejectResponse(
       {
         message: "Conversie naar Postman heeft geen collectie opgeleverd.",

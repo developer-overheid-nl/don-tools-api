@@ -7,7 +7,6 @@ const OasGeneratorService = require("./OasGeneratorService");
 const PostmanConversionService = require("./PostmanConversionService");
 const ArazzoVisualizationService = require("./ArazzoVisualizationService");
 const { KeycloakService, parseUntrustClientInput, translateKeycloakError } = require("./KeycloakService");
-const logger = require("../logger");
 
 const keycloakService = KeycloakService.fromEnv();
 
@@ -25,12 +24,6 @@ const normalizeError = (error) => {
   const message = error?.message || "Er is een fout opgetreden.";
   const detail = error?.detail || message;
   return { status, message, detail };
-};
-
-const logServiceError = (operation, error) => {
-  const { detail } = normalizeError(error);
-  const stack = error?.stack ? ` stack=${error.stack}` : "";
-  logger.error(`[ToolsService] ${operation} failed: ${detail}${stack}`);
 };
 
 const handleArazzoVisualization = async ({ operationId, params, pick, contentType }) => {
@@ -53,7 +46,6 @@ const handleArazzoVisualization = async ({ operationId, params, pick, contentTyp
       payload: body,
     };
   } catch (e) {
-    logServiceError(operationId, e);
     const { status, message, detail } = normalizeError(e);
     throw Service.rejectResponse({ message, detail }, status);
   }
@@ -114,7 +106,6 @@ const convertOAS = async (params) => {
       payload: result.rawBody,
     };
   } catch (e) {
-    logServiceError("convertOAS", e);
     const { status, message, detail } = normalizeError(e);
     throw Service.rejectResponse({ message, detail }, status);
   }
@@ -145,7 +136,6 @@ const createPostmanCollection = async (params) => {
       payload: result.rawBody,
     };
   } catch (e) {
-    logServiceError("createPostmanCollection", e);
     const { status, message, detail } = normalizeError(e);
     throw Service.rejectResponse({ message, detail }, status);
   }
@@ -175,7 +165,6 @@ const bundleOAS = async (params) => {
       payload: result.rawBody,
     };
   } catch (e) {
-    logServiceError("bundleOAS", e);
     const { status, message, detail } = normalizeError(e);
     throw Service.rejectResponse({ message, detail }, status);
   }
@@ -206,7 +195,6 @@ const generateOAS = async (params) => {
       payload: result.rawBody,
     };
   } catch (e) {
-    logServiceError("generateOAS", e);
     const { status, message, detail } = normalizeError(e);
     throw Service.rejectResponse({ message, detail }, status);
   }
@@ -236,7 +224,6 @@ const untrustClient = async (params) => {
     const result = await keycloakService.createClient({ email });
     return Service.successResponse(result);
   } catch (e) {
-    logServiceError("untrustClient", e);
     if (Service.isErrorResponse(e)) {
       throw e;
     }
@@ -277,7 +264,6 @@ const validatorOpenAPIPost = async (params) => {
     const result = await OasValidatorService.validate(requestPayload);
     return Service.successResponse(result);
   } catch (e) {
-    logServiceError("validatorOpenAPIPost", e);
     const { status, message, detail } = normalizeError(e);
     throw Service.rejectResponse({ message, detail }, status);
   }

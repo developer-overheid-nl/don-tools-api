@@ -101,8 +101,11 @@ const bundle = async (input) => {
       if (!hasCircular) {
         throw jsonError;
       }
-      logger.warn("[OasBundleService] JSON bundle failed due to circular refs, retrying with YAML", {
-        message: jsonError?.message,
+      logger.warn("OpenAPI bundle is retrying as YAML after a circular reference", {
+        event: "oas.bundle.fallback_to_yaml",
+        error: {
+          message: jsonError?.message,
+        },
       });
       outputExt = "yaml";
       await runRedoclyBundle(inputPath(), outputPath("yaml"), "yaml");
@@ -110,10 +113,6 @@ const bundle = async (input) => {
       document = jsYaml.load(bundledText);
     }
   } catch (error) {
-    logger.error("[OasBundleService] bundle failed via redocly CLI", {
-      message: error?.message,
-      stack: error?.stack,
-    });
     const status = typeof error?.status === "number" && error.status >= 400 ? error.status : 400;
     throw Service.rejectResponse(
       {

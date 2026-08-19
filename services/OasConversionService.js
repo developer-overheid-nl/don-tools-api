@@ -3,7 +3,6 @@ const { upgrade: scalarUpgrade } = require("@scalar/openapi-upgrader");
 const jsYaml = require("js-yaml");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
-const logger = require("../logger");
 
 const DEFAULT_TARGET_VERSION = "3.1.0";
 
@@ -153,7 +152,6 @@ const convert = async (input) => {
     parsed = parseSpecification(contents);
   } catch (error) {
     if (Service.isErrorResponse(error)) throw error;
-    logger.error(`[OasConversionService] parseSpecification failed: ${error?.message}`);
     throw Service.rejectResponse({ message: error.message }, 500);
   }
 
@@ -165,7 +163,6 @@ const convert = async (input) => {
     }));
   } catch (error) {
     if (Service.isErrorResponse(error)) throw error;
-    logger.error(`[OasConversionService] convertSpec failed: ${error?.message}`);
     throw Service.rejectResponse(
       { message: error.message || "Er is een fout opgetreden tijdens het converteren." },
       500,

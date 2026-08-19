@@ -21,14 +21,44 @@ const ExpressServer = require("./expressServer");
 let expressServer;
 
 const launchServer = async () => {
-  try {
-    expressServer = new ExpressServer(config.URL_PORT, config.OPENAPI_JSON);
-    expressServer.launch();
-    logger.info("Express server running");
-  } catch (error) {
-    logger.error("Express Server failure", error.message);
-    await expressServer?.close?.();
-  }
+  expressServer = new ExpressServer(config.URL_PORT, config.OPENAPI_JSON);
+  await expressServer.launch();
 };
 
-launchServer().catch((e) => logger.error(e));
+const serializeError = (error) => ({
+  message: error?.message || String(error),
+  ...(error?.stack ? { stack: error.stack } : {}),
+});
+
+let shutdownPromise;
+const shutdownServer = (signal) => {
+  if (!shutdownPromise) {
+    shutdownPromise = expressServer?.close?.().catch((error) => {
+      logger.error("HTTP server failed to stop", {
+        event: "server.shutdown.failed",
+        signal,
+        error: serializeError(error),
+      });
+      process.exitCode = 1;
+    });
+  }
+  return shutdownPromise;
+};
+
+process.once("SIGTERM", () => shutdownServer("SIGTERM"));
+process.once("SIGINT", () => shutdownServer("SIGINT"));
+
+launchServer().catch(async (error) => {
+  let shutdownError;
+  try {
+    await expressServer?.close?.();
+  } catch (closeError) {
+    shutdownError = serializeError(closeError);
+  }
+  logger.error("HTTP server failed to start", {
+    event: "server.startup.failed",
+    error: serializeError(error),
+    ...(shutdownError ? { shutdownError } : {}),
+  });
+  process.exitCode = 1;
+});

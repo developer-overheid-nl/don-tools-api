@@ -2,7 +2,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const config = require("../config");
 const Service = require("../services/Service");
-const logger = require("../logger");
 
 class Controller {
   static getStatusText(status) {
@@ -54,7 +53,7 @@ class Controller {
   static sendError(response, error) {
     const status = error.code || 500;
     const reason = error.message || error.error?.message || "Unexpected error";
-    const detail = error.detail || reason;
+    const detail = error.detail || error.error?.detail || reason;
     let invalidParams = [];
     if (Array.isArray(error.invalidParams)) {
       invalidParams = error.invalidParams;
@@ -78,12 +77,11 @@ class Controller {
       problem.invalidParams = invalidParams;
     }
 
-    logger.error(`Request failed (${status} ${Controller.getStatusText(status)}): ${reason}`, {
-      detail,
-      invalidParams,
-      errorMessage: error?.message,
-      stack: error?.stack,
-    });
+    response.locals.loggingError = {
+      message: reason,
+      ...(status >= 500 ? { detail } : {}),
+      ...(status >= 500 && error.stack ? { stack: error.stack } : {}),
+    };
 
     response.status(status).json(problem);
   }

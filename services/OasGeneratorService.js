@@ -2,7 +2,6 @@ const { kebabCase, upperCamelCase } = require("case-anything");
 const Service = require("./Service");
 const { resolveOasInput } = require("./OasInputService");
 const { sanitizeFileName } = require("../utils/fileName");
-const logger = require("../logger");
 
 const EMPTY_BODY_ERROR = "Body ontbreekt of heeft een ongeldig formaat.";
 const INVALID_JSON_ERROR = "Het aangeleverde JSON-document kon niet worden gelezen.";
@@ -320,13 +319,7 @@ const deriveFilename = (title) => {
 
 const generate = async (input) => {
   const { contents } = await resolveOasInput(input);
-  let config;
-  try {
-    config = parseGeneratorConfig(contents);
-  } catch (error) {
-    logger.error(`[OasGeneratorService] parseGeneratorConfig failed: ${error?.detail || error?.message || "unknown"}`);
-    throw error;
-  }
+  const config = parseGeneratorConfig(contents);
 
   try {
     const document = buildOpenApiDocument(config);
@@ -339,12 +332,7 @@ const generate = async (input) => {
       },
       rawBody: buffer,
     };
-  } catch (error) {
-    logger.error(
-      `[OasGeneratorService] buildOpenApiDocument failed: ${error?.message || "unknown"}${
-        error?.stack ? ` stack=${error.stack}` : ""
-      }`,
-    );
+  } catch {
     throw Service.rejectResponse(
       {
         message: "Er is een fout opgetreden tijdens het genereren van de OpenAPI specificatie.",

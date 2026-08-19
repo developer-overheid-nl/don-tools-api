@@ -1,11 +1,8 @@
-"use strict";
-
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const jsYaml = require("js-yaml");
 const {
-  logger: redoclyLogger,
   createConfig,
   lint,
   bundle,
@@ -71,11 +68,11 @@ const logLintSummary = (lintProblems, version) => {
   const totals = getTotals(lintProblems);
   formatProblems(lintProblems, { totals, version });
 
-  if (totals.errors > 0) {
-    appLogger.error("[ArazzoService] lint errors in Arazzo beschrijving", { errors: totals.errors });
-  } else if (totals.warnings > 0) {
-    appLogger.warn("[ArazzoService] lint waarschuwingen in Arazzo beschrijving", { warnings: totals.warnings });
-  }
+  appLogger.debug("Arazzo lint completed with findings", {
+    event: "arazzo.lint.completed",
+    errors: totals.errors,
+    warnings: totals.warnings,
+  });
 };
 
 const bundleArazzoDocument = async ({
@@ -155,9 +152,12 @@ const ensureTempFile = async (contents, filename = "input.yaml") => {
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
     } catch (error) {
-      appLogger.warn("[ArazzoService] opruimen temp dir faalde", {
+      appLogger.warn("Temporary Arazzo files could not be removed", {
+        event: "arazzo.cleanup.failed",
         tempDir,
-        message: error?.message,
+        error: {
+          message: error?.message,
+        },
       });
     }
   };
@@ -263,13 +263,6 @@ const loadArazzoDocumentFromContents = async (contents) => {
     }
 
     return document;
-  } catch (error) {
-    appLogger.error("[ArazzoService] bundelen Arazzo-document mislukt", {
-      message: error?.message,
-      detail: error?.detail,
-      stack: error?.stack,
-    });
-    throw error;
   } finally {
     await cleanup();
   }
@@ -299,11 +292,6 @@ const generateArazzoFromOpenApi = async (contents) => {
 
     return document;
   } catch (error) {
-    appLogger.error("[ArazzoService] generate from OpenAPI failed", {
-      message: error?.message,
-      stack: error?.stack,
-    });
-
     throw Service.rejectResponse(
       {
         message: "Kon Arazzo workflows genereren vanuit OpenAPI.",
@@ -662,7 +650,7 @@ const convertInputToArazzo = async (input) => {
 
   const contents = resolved.contents;
   const parsed = parseYamlOrUndefined(contents);
-  const isArazzoSpecification = Boolean(parsed && parsed.arazzo);
+  const isArazzoSpecification = Boolean(parsed?.arazzo);
   const openapiDocument = parsed && !isArazzoSpecification ? parsed : undefined;
 
   try {
@@ -676,15 +664,9 @@ const convertInputToArazzo = async (input) => {
       openapiDocument,
     };
   } catch (error) {
-    if (Service.isErrorResponse && Service.isErrorResponse(error)) {
+    if (Service.isErrorResponse?.(error)) {
       throw error;
     }
-
-    appLogger.error("[ArazzoService] Arazzo conversie mislukt", {
-      message: error?.message,
-      detail: error?.detail,
-      stack: error?.stack,
-    });
 
     throw Service.rejectResponse(
       {

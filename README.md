@@ -58,6 +58,12 @@ De meeste endpoints werken zonder extra configuratie. `POST /v1/auth/clients` ge
 - `KEYCLOAK_BASE_URL`
 - `KEYCLOAK_REALM`
 
+## Logging
+
+De API schrijft gestructureerde JSON-logs naar stdout. Stel het minimale niveau in met `LOG_LEVEL`; de standaardwaarde is `info`.
+
+Elk HTTP-request krijgt een `X-Request-ID`. Een aangeleverde waarde wordt hergebruikt, anders genereert de API er zelf een. Requestlogs bevatten methode, pad, operationId, status en doorlooptijd, maar geen requestbody, querystring of gevoelige headers. De applicatie maakt geen lokale logbestanden aan.
+
 ## Endpoints
 
 - `GET /v1/openapi.json`

@@ -1,4 +1,5 @@
 const http = require("node:http");
+const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const express = require("express");
@@ -7,6 +8,13 @@ const bodyParser = require("body-parser");
 const OpenApiValidator = require("express-openapi-validator");
 const logger = require("./logger");
 const config = require("./config");
+
+const REQUEST_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+
+const resolveRequestId = (value) => {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  return REQUEST_ID_PATTERN.test(candidate) ? candidate : randomUUID();
+};
 
 class ExpressServer {
   static sanitizeOperationId(operationId) {
@@ -57,7 +65,7 @@ class ExpressServer {
   }
 
   static normalizeOperationIds(schema) {
-    if (!schema || !schema.paths) {
+    if (!schema?.paths) {
       return;
     }
     const methods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
@@ -103,7 +111,7 @@ class ExpressServer {
       }
       ExpressServer.normalizeOperationIds(this.schema);
     } catch (e) {
-      logger.error("failed to start Express Server", e.message);
+      throw new Error(`Unable to load OpenAPI specification: ${e.message}`, { cause: e });
     }
     this.setupMiddleware();
   }
@@ -129,6 +137,27 @@ class ExpressServer {
 
   setupMiddleware() {
     // this.setupAllowedMedia();
+    this.app.use((req, res, next) => {
+      const startedAt = process.hrtime.bigint();
+      const requestId = resolveRequestId(req.get("x-request-id"));
+      req.requestId = requestId;
+      res.set("X-Request-ID", requestId);
+      res.on("finish", () => {
+        const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+        const level = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info";
+        logger.log(level, "HTTP request completed", {
+          event: "http.request.completed",
+          requestId,
+          method: req.method,
+          path: req.path,
+          operationId: req.openapi?.schema?.["x-original-operationId"] || req.openapi?.schema?.operationId,
+          statusCode: res.statusCode,
+          durationMs,
+          error: res.locals.loggingError,
+        });
+      });
+      next();
+    });
     this.app.use(cors());
     this.app.use(bodyParser.json({ limit: "14MB" }));
     this.app.use(express.json());
@@ -170,7 +199,10 @@ class ExpressServer {
       }
     }
     if (!handlerRef) {
-      logger.warn(`No handler reference found for operation ${operation.operationId}`);
+      logger.warn("Route handler reference is missing", {
+        event: "route.handler_reference.missing",
+        operationId: operation.operationId,
+      });
       return null;
     }
     const normalizedRef = handlerRef.replace(/\\/g, "/");
@@ -178,21 +210,29 @@ class ExpressServer {
       ? path.join(__dirname, normalizedRef)
       : path.join(__dirname, `${normalizedRef}.js`);
     if (!fs.existsSync(modulePath)) {
-      logger.warn(`Handler module missing for ${operation.operationId}: ${modulePath}`);
+      logger.warn("Route handler module is missing", {
+        event: "route.handler_module.missing",
+        operationId: operation.operationId,
+        modulePath,
+      });
       return null;
     }
     // eslint-disable-next-line global-require, import/no-dynamic-require
     const controllerModule = require(modulePath);
     const handler = controllerModule[operation.operationId];
     if (typeof handler !== "function") {
-      logger.warn(`Handler function ${operation.operationId} not found in ${modulePath}`);
+      logger.warn("Route handler function is missing", {
+        event: "route.handler_function.missing",
+        operationId: operation.operationId,
+        modulePath,
+      });
       return null;
     }
     return handler;
   }
 
   static registerRoutes(app, schema) {
-    if (!schema || !schema.paths) {
+    if (!schema?.paths) {
       return;
     }
     const methods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
@@ -209,7 +249,6 @@ class ExpressServer {
           continue;
         }
         app[method](expressPath, async (req, res, next) => {
-          logger.info(`Incoming request for ${method.toUpperCase()} ${expressPath}`);
           req.openapi = req.openapi || {};
           req.openapi.schema = req.openapi.schema || operation;
           req.openapi.pathParams = req.openapi.pathParams || req.params;
@@ -223,7 +262,7 @@ class ExpressServer {
     }
   }
 
-  launch() {
+  async launch() {
     // eslint-disable-next-line no-unused-vars
     this.app.use((err, req, res, _next) => {
       // format errors using RFC 7807 Problem Details format
@@ -245,19 +284,47 @@ class ExpressServer {
         problemDetails.invalidParams = err.errors;
       }
 
+      res.locals.loggingError = {
+        message: problemDetails.detail,
+        ...(status >= 500 ? { detail: problemDetails.detail } : {}),
+        ...(status >= 500 && err.stack ? { stack: err.stack } : {}),
+      };
+
       // Set the proper content type for problem+json
       res.set("Content-Type", "application/problem+json");
       res.status(status).json(problemDetails);
     });
 
-    http.createServer(this.app).listen(this.port);
-    console.log(`Listening on port ${this.port}`);
+    this.server = http.createServer(this.app);
+    await new Promise((resolve, reject) => {
+      const handleStartupError = (error) => {
+        this.server = undefined;
+        reject(error);
+      };
+      this.server.once("error", handleStartupError);
+      this.server.listen(this.port, () => {
+        this.server.off("error", handleStartupError);
+        resolve();
+      });
+    });
+    const address = this.server.address();
+    this.listeningPort = typeof address === "object" && address ? address.port : this.port;
+    logger.info("HTTP server started", {
+      event: "server.started",
+      port: this.listeningPort,
+    });
+    return this.server;
   }
 
   async close() {
     if (this.server !== undefined) {
-      await this.server.close();
-      console.log(`Server on port ${this.port} shut down`);
+      const server = this.server;
+      await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+      this.server = undefined;
+      logger.info("HTTP server stopped", {
+        event: "server.stopped",
+        port: this.listeningPort,
+      });
     }
   }
 }
