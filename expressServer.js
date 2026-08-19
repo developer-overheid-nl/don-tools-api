@@ -8,6 +8,7 @@ const bodyParser = require("body-parser");
 const OpenApiValidator = require("express-openapi-validator");
 const logger = require("./logger");
 const config = require("./config");
+const { runWithRequestContext } = require("./requestContext");
 
 const REQUEST_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 
@@ -142,9 +143,14 @@ class ExpressServer {
       const requestId = resolveRequestId(req.get("x-request-id"));
       req.requestId = requestId;
       res.set("X-Request-ID", requestId);
-      res.on("finish", () => {
+      let boundaryLogged = false;
+      const logRequestBoundary = (aborted = false) => {
+        if (boundaryLogged) {
+          return;
+        }
+        boundaryLogged = true;
         const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-        const level = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info";
+        const level = aborted || res.statusCode >= 400 ? (res.statusCode >= 500 ? "error" : "warn") : "info";
         logger.log(level, "HTTP request completed", {
           event: "http.request.completed",
           requestId,
@@ -154,9 +160,16 @@ class ExpressServer {
           statusCode: res.statusCode,
           durationMs,
           error: res.locals.loggingError,
+          ...(aborted ? { aborted: true } : {}),
         });
+      };
+      res.on("finish", () => logRequestBoundary());
+      res.on("close", () => {
+        if (!res.writableFinished) {
+          logRequestBoundary(true);
+        }
       });
-      next();
+      runWithRequestContext({ requestId }, next);
     });
     this.app.use(cors());
     this.app.use(bodyParser.json({ limit: "14MB" }));
@@ -296,6 +309,11 @@ class ExpressServer {
     });
 
     this.server = http.createServer(this.app);
+    this.connections = new Set();
+    this.server.on("connection", (socket) => {
+      this.connections.add(socket);
+      socket.once("close", () => this.connections.delete(socket));
+    });
     await new Promise((resolve, reject) => {
       const handleStartupError = (error) => {
         this.server = undefined;
@@ -316,16 +334,56 @@ class ExpressServer {
     return this.server;
   }
 
-  async close() {
-    if (this.server !== undefined) {
-      const server = this.server;
-      await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  async close({ signal } = {}) {
+    if (this.closePromise) {
+      return this.closePromise;
+    }
+    if (this.server === undefined) {
+      return undefined;
+    }
+    const server = this.server;
+    const gracePeriodMs = config.SHUTDOWN_GRACE_PERIOD_MS;
+    this.closePromise = (async () => {
+      let stopped = false;
+      const forceTimer = setTimeout(() => {
+        if (stopped) {
+          return;
+        }
+        logger.warn("HTTP server is force-closing connections after the shutdown grace period", {
+          event: "server.shutdown.force_close",
+          ...(signal ? { signal } : {}),
+          gracePeriodMs,
+          connectionCount: this.connections?.size || 0,
+        });
+        server.closeAllConnections?.();
+        for (const socket of this.connections || []) {
+          socket.destroy();
+        }
+      }, gracePeriodMs);
+      forceTimer.unref();
+
+      try {
+        const serverClosed = new Promise((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+        server.closeIdleConnections?.();
+        await serverClosed;
+        stopped = true;
+      } finally {
+        clearTimeout(forceTimer);
+      }
       this.server = undefined;
       logger.info("HTTP server stopped", {
         event: "server.stopped",
         port: this.listeningPort,
       });
+    })();
+    try {
+      await this.closePromise;
+    } finally {
+      this.closePromise = undefined;
     }
+    return undefined;
   }
 }
 

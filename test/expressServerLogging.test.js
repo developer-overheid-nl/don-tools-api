@@ -35,6 +35,16 @@ const listen = (app) =>
 
 const close = (server) => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 
+const waitFor = async (predicate, timeoutMs = 1000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error("timed out waiting for asynchronous test condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+};
+
 test("a completed request emits one correlated structured record", async (t) => {
   const records = captureLogRecords();
   const expressServer = new ExpressServer(0, openApiPath);
@@ -73,6 +83,54 @@ test("a completed request emits one correlated structured record", async (t) => 
   );
   assert.equal(typeof records[0].durationMs, "number");
   assert.ok(records[0].durationMs >= 0);
+});
+
+test("an aborted request emits one correlated structured boundary record", async (t) => {
+  const records = captureLogRecords();
+  const expressServer = new ExpressServer(0, openApiPath);
+  let markRequestStarted;
+  const requestStarted = new Promise((resolve) => {
+    markRequestStarted = resolve;
+  });
+  expressServer.app.get("/test/never-finishes", (_request, _response) => markRequestStarted());
+  const server = await listen(expressServer.app);
+  t.after(() => close(server));
+
+  const { port } = server.address();
+  const request = http.request({
+    host: "127.0.0.1",
+    port,
+    path: "/test/never-finishes?token=must-not-be-logged",
+    headers: { "x-request-id": "aborted-request" },
+  });
+  request.on("error", () => {});
+  request.end();
+  await requestStarted;
+  const requestClosed = new Promise((resolve) => request.once("close", resolve));
+  request.destroy();
+  await requestClosed;
+  await waitFor(() => records.length === 1);
+
+  assert.equal(records.length, 1);
+  assert.deepEqual(
+    {
+      aborted: records[0].aborted,
+      event: records[0].event,
+      level: records[0].level,
+      method: records[0].method,
+      path: records[0].path,
+      requestId: records[0].requestId,
+    },
+    {
+      aborted: true,
+      event: "http.request.completed",
+      level: "warn",
+      method: "GET",
+      path: "/test/never-finishes",
+      requestId: "aborted-request",
+    },
+  );
+  assert.doesNotMatch(JSON.stringify(records), /must-not-be-logged/);
 });
 
 test("unsafe request identifiers are replaced before they are reflected or logged", async (t) => {
@@ -181,6 +239,7 @@ test("a service exception is not logged again while propagating to the HTTP boun
   assert.equal(records[0].level, "error");
   assert.equal(records[0].requestId, "service-failure");
   assert.match(records[0].error.message, /OpenAPI specificatie niet parseren/);
+  assert.match(records[0].error.stack, /^Error: Kan OpenAPI specificatie niet parseren/);
 });
 
 test("middleware failures add structured error context to the request record", async (t) => {
@@ -209,7 +268,7 @@ test("middleware failures add structured error context to the request record", a
   assert.deepEqual(Object.keys(requestRecord.error), ["message"]);
 });
 
-test("remote fetch retries log safe structured targets without query strings or response bodies", async (t) => {
+test("remote fetch retries are correlated without logging URL secrets or response bodies", async (t) => {
   const upstream = http.createServer((_request, response) => {
     response.writeHead(502, { "content-type": "text/plain" });
     response.end("sensitive upstream response");
@@ -226,9 +285,12 @@ test("remote fetch retries log safe structured targets without query strings or 
   const { port } = server.address();
   const response = await fetch(`http://127.0.0.1:${port}/v1/oas/convert`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-request-id": "remote-fetch-request",
+    },
     body: JSON.stringify({
-      oasUrl: `http://127.0.0.1:${upstreamPort}/spec?token=secret-value`,
+      oasUrl: `http://127.0.0.1:${upstreamPort}/path-secret-value/spec?token=query-secret-value`,
     }),
   });
   await response.arrayBuffer();
@@ -238,22 +300,30 @@ test("remote fetch retries log safe structured targets without query strings or 
   const retryRecords = records.filter(({ event }) => event === "remote_specification.fetch_attempt.failed");
   assert.equal(retryRecords.length, 2);
   assert.deepEqual(
-    retryRecords.map(({ level, target, withOriginHeader }) => ({ level, target, withOriginHeader })),
+    retryRecords.map(({ level, requestId, target, withOriginHeader }) => ({
+      level,
+      requestId,
+      target,
+      withOriginHeader,
+    })),
     [
       {
         level: "warn",
-        target: { origin: `http://127.0.0.1:${upstreamPort}`, path: "/spec" },
+        requestId: "remote-fetch-request",
+        target: { origin: `http://127.0.0.1:${upstreamPort}`, resourceType: "openapi_specification" },
         withOriginHeader: true,
       },
       {
         level: "warn",
-        target: { origin: `http://127.0.0.1:${upstreamPort}`, path: "/spec" },
+        requestId: "remote-fetch-request",
+        target: { origin: `http://127.0.0.1:${upstreamPort}`, resourceType: "openapi_specification" },
         withOriginHeader: false,
       },
     ],
   );
   const serializedRecords = JSON.stringify(records);
-  assert.doesNotMatch(serializedRecords, /secret-value/);
+  assert.doesNotMatch(serializedRecords, /path-secret-value/);
+  assert.doesNotMatch(serializedRecords, /query-secret-value/);
   assert.doesNotMatch(serializedRecords, /sensitive upstream response/);
 });
 
@@ -379,6 +449,46 @@ test("mock response decisions include structured service and operation context",
       operationId: "convertOAS",
     },
   );
+});
+
+test("request-scoped mock decisions carry the boundary request identifier", async (t) => {
+  const previousUseMocks = config.USE_MOCKS;
+  const previousMockModules = Service.mockModules;
+  const previousApiDoc = Service.apiDoc;
+  const previousOperationIndex = Service.operationIndex;
+  t.after(() => {
+    config.USE_MOCKS = previousUseMocks;
+    Service.mockModules = previousMockModules;
+    Service.apiDoc = previousApiDoc;
+    Service.operationIndex = previousOperationIndex;
+  });
+
+  config.USE_MOCKS = true;
+  Service.mockModules = {};
+  Service.apiDoc = undefined;
+  Service.operationIndex = undefined;
+  const records = captureLogRecords();
+  const expressServer = new ExpressServer(0, openApiPath);
+  const server = await listen(expressServer.app);
+  t.after(() => close(server));
+
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/v1/oas/convert`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-request-id": "mock-request",
+    },
+    body: JSON.stringify({ oasBody: "{}" }),
+  });
+  await response.arrayBuffer();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(response.status, 200);
+  const mockRecord = records.find(({ event }) => event.startsWith("mock.response."));
+  const requestRecord = records.find(({ event }) => event === "http.request.completed");
+  assert.equal(mockRecord.requestId, "mock-request");
+  assert.equal(requestRecord.requestId, "mock-request");
 });
 
 test("missing route handler configuration emits structured operation context", () => {

@@ -62,7 +62,9 @@ De meeste endpoints werken zonder extra configuratie. `POST /v1/auth/clients` ge
 
 De API schrijft gestructureerde JSON-logs naar stdout. Stel het minimale niveau in met `LOG_LEVEL`; de standaardwaarde is `info`.
 
-Elk HTTP-request krijgt een `X-Request-ID`. Een aangeleverde waarde wordt hergebruikt, anders genereert de API er zelf een. Requestlogs bevatten methode, pad, operationId, status en doorlooptijd, maar geen requestbody, querystring of gevoelige headers. De applicatie maakt geen lokale logbestanden aan.
+Elk HTTP-request krijgt een `X-Request-ID`. Een aangeleverde waarde wordt hergebruikt, anders genereert de API er zelf een. Requestlogs en requestgebonden applicatielogs bevatten dit ID. De requestlogs bevatten methode, pad, operationId, status en doorlooptijd, maar geen requestbody, querystring, upstream-pad of gevoelige headers. Ook een afgebroken verbinding levert precies één requestrecord op, met `aborted: true`. De applicatie maakt geen lokale logbestanden aan.
+
+Bij `SIGTERM` en `SIGINT` probeert de server open verbindingen eerst netjes af te handelen. Na `SHUTDOWN_GRACE_PERIOD_MS` (standaard 10000 ms) sluit de server resterende verbindingen geforceerd en schrijft hij daarvan een waarschuwing.
 
 ## Endpoints
 

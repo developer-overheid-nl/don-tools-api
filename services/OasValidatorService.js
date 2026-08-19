@@ -55,6 +55,7 @@ const loadSpectral = (rulesetVersion) => {
             detail: error.message,
           },
           500,
+          error,
         );
       }
     })();

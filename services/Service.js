@@ -13,8 +13,16 @@ const logMockEvent = (level, event, message, mockService, operationId, metadata 
 };
 
 class Service {
-  static rejectResponse(error, code = 500) {
-    return { error, code };
+  static rejectResponse(error, code = 500, cause = undefined) {
+    const stack =
+      code >= 500
+        ? cause?.stack || error?.stack || new Error(error?.message || "Service request failed").stack
+        : undefined;
+    return {
+      error,
+      code,
+      ...(code >= 500 && stack ? { stack } : {}),
+    };
   }
 
   static successResponse(payload, code = 200) {
@@ -56,12 +64,14 @@ class Service {
   }
 
   static throwHttpError(status, message, detail = undefined) {
+    const cause = new Error(message);
     throw Service.rejectResponse(
       {
         message,
         detail: detail || message,
       },
       status,
+      cause,
     );
   }
 

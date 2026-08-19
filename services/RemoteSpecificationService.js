@@ -68,7 +68,7 @@ const fetchSpecification = async (url, { errorMessage = DEFAULT_ERROR_MESSAGE } 
   const targetUrl = new URL(url);
   const target = {
     origin: targetUrl.origin,
-    path: targetUrl.pathname,
+    resourceType: "openapi_specification",
   };
   let lastError;
   for (const attempt of attempts) {

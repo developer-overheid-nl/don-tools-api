@@ -120,6 +120,7 @@ const bundle = async (input) => {
         detail: error?.message,
       },
       status,
+      error,
     );
   } finally {
     if (tmpDir) {

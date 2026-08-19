@@ -152,7 +152,7 @@ const convert = async (input) => {
     parsed = parseSpecification(contents);
   } catch (error) {
     if (Service.isErrorResponse(error)) throw error;
-    throw Service.rejectResponse({ message: error.message }, 500);
+    throw Service.rejectResponse({ message: error.message }, 500, error);
   }
 
   const { spec, format } = parsed;
@@ -166,6 +166,7 @@ const convert = async (input) => {
     throw Service.rejectResponse(
       { message: error.message || "Er is een fout opgetreden tijdens het converteren." },
       500,
+      error,
     );
   }
 

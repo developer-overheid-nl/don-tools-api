@@ -7,6 +7,11 @@ const parseEnvBoolean = (value) => {
   return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
 };
 
+const parsePositiveNumber = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+};
+
 const config = {
   ROOT_DIR: __dirname,
   URL_PORT: 1338,
@@ -15,6 +20,7 @@ const config = {
   CONTROLLER_DIRECTORY: path.join(__dirname, "controllers"),
   PROJECT_DIR: __dirname,
   USE_MOCKS: parseEnvBoolean(process.env.USE_MOCKS) || parseEnvBoolean(process.env.MOCKS_ENABLED),
+  SHUTDOWN_GRACE_PERIOD_MS: parsePositiveNumber(process.env.SHUTDOWN_GRACE_PERIOD_MS, 10000),
 };
 config.OPENAPI_JSON = path.join(config.ROOT_DIR, "api", "openapi.json");
 config.FULL_PATH = `${config.URL_PATH}:${config.URL_PORT}/${config.BASE_VERSION}`;

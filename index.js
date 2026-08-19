@@ -33,7 +33,7 @@ const serializeError = (error) => ({
 let shutdownPromise;
 const shutdownServer = (signal) => {
   if (!shutdownPromise) {
-    shutdownPromise = expressServer?.close?.().catch((error) => {
+    shutdownPromise = expressServer?.close?.({ signal }).catch((error) => {
       logger.error("HTTP server failed to stop", {
         event: "server.shutdown.failed",
         signal,

@@ -47,7 +47,7 @@ const handleArazzoVisualization = async ({ operationId, params, pick, contentTyp
     };
   } catch (e) {
     const { status, message, detail } = normalizeError(e);
-    throw Service.rejectResponse({ message, detail }, status);
+    throw Service.rejectResponse({ message, detail }, status, e);
   }
 };
 
@@ -107,7 +107,7 @@ const convertOAS = async (params) => {
     };
   } catch (e) {
     const { status, message, detail } = normalizeError(e);
-    throw Service.rejectResponse({ message, detail }, status);
+    throw Service.rejectResponse({ message, detail }, status, e);
   }
 };
 
@@ -137,7 +137,7 @@ const createPostmanCollection = async (params) => {
     };
   } catch (e) {
     const { status, message, detail } = normalizeError(e);
-    throw Service.rejectResponse({ message, detail }, status);
+    throw Service.rejectResponse({ message, detail }, status, e);
   }
 };
 
@@ -166,7 +166,7 @@ const bundleOAS = async (params) => {
     };
   } catch (e) {
     const { status, message, detail } = normalizeError(e);
-    throw Service.rejectResponse({ message, detail }, status);
+    throw Service.rejectResponse({ message, detail }, status, e);
   }
 };
 
@@ -196,7 +196,7 @@ const generateOAS = async (params) => {
     };
   } catch (e) {
     const { status, message, detail } = normalizeError(e);
-    throw Service.rejectResponse({ message, detail }, status);
+    throw Service.rejectResponse({ message, detail }, status, e);
   }
 };
 
@@ -239,6 +239,7 @@ const untrustClient = async (params) => {
         detail: e.detail || message,
       },
       status,
+      e,
     );
   }
 };
@@ -265,7 +266,7 @@ const validatorOpenAPIPost = async (params) => {
     return Service.successResponse(result);
   } catch (e) {
     const { status, message, detail } = normalizeError(e);
-    throw Service.rejectResponse({ message, detail }, status);
+    throw Service.rejectResponse({ message, detail }, status, e);
   }
 };
 

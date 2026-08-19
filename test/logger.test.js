@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
+const net = require("node:net");
 const test = require("node:test");
 
 const loggerPath = path.resolve(__dirname, "../logger.js");
@@ -167,6 +168,79 @@ test("application startup and SIGTERM emit one structured lifecycle record each"
     { event: "server.started", message: "HTTP server started" },
     { event: "server.stopped", message: "HTTP server stopped" },
   ]);
+});
+
+test("SIGTERM bounds shutdown when a connection does not drain", async (t) => {
+  const script = `
+    const config = require(${JSON.stringify(configPath)});
+    config.URL_PORT = 0;
+    require(${JSON.stringify(indexPath)});
+  `;
+  const child = spawn(process.execPath, ["-e", script], {
+    env: { ...process.env, NODE_ENV: "production", SHUTDOWN_GRACE_PERIOD_MS: "50" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  t.after(() => {
+    if (child.exitCode === null) child.kill("SIGKILL");
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk.toString("utf8");
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk.toString("utf8");
+  });
+
+  const startedRecord = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`application did not start in time: ${stderr}`)), 3000);
+    const poll = setInterval(() => {
+      const record = stdout
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line))
+        .find(({ event }) => event === "server.started");
+      if (record) {
+        clearTimeout(timeout);
+        clearInterval(poll);
+        resolve(record);
+      }
+    }, 10);
+  });
+
+  const socket = net.createConnection({ host: "127.0.0.1", port: startedRecord.port });
+  t.after(() => socket.destroy());
+  await new Promise((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("error", reject);
+  });
+  socket.write("GET /v1/openapi.json HTTP/1.1\r\nHost: 127.0.0.1\r\n");
+
+  const shutdownStartedAt = Date.now();
+  child.kill("SIGTERM");
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`application did not stop in time: ${stderr}`)), 1500);
+    child.once("exit", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    child.once("error", reject);
+  });
+
+  assert.ok(Date.now() - shutdownStartedAt < 1500);
+  const records = stdout
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  assert.deepEqual(
+    records.map(({ event, level }) => ({ event, level })),
+    [
+      { event: "server.started", level: "info" },
+      { event: "server.shutdown.force_close", level: "warn" },
+      { event: "server.stopped", level: "info" },
+    ],
+  );
 });
 
 test("application startup failure emits one structured error and exits unsuccessfully", () => {

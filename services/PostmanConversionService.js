@@ -36,6 +36,7 @@ const convert = async (input) => {
         message: error.message || "Er is een fout opgetreden tijdens het lezen van de input.",
       },
       500,
+      error,
     );
   }
 
@@ -53,6 +54,7 @@ const convert = async (input) => {
         message: error.message || "Conversie naar Postman is mislukt.",
       },
       500,
+      error,
     );
   }
 
