@@ -213,4 +213,26 @@ describe("app", () => {
     });
     expect(JSON.parse(response.body)).not.toHaveProperty("rawBody");
   });
+
+  it("preserves problem responses when response validation is enabled", async () => {
+    const previous = process.env.OPENAPI_VALIDATE_RESPONSES;
+    process.env.OPENAPI_VALIDATE_RESPONSES = "true";
+    const validatingApp = await createApp();
+    if (previous === undefined) delete process.env.OPENAPI_VALIDATE_RESPONSES;
+    else process.env.OPENAPI_VALIDATE_RESPONSES = previous;
+
+    try {
+      await validatingApp.init();
+      const response = await validatingApp.getHttpAdapter().getInstance().inject({
+        method: "POST",
+        url: "/v1/oas/validate",
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.headers["content-type"]).toContain("application/problem+json");
+    } finally {
+      await validatingApp.close();
+    }
+  });
 });

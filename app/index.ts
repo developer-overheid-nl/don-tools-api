@@ -660,6 +660,14 @@ export const createApp = async (): Promise<NestFastifyApplication> => {
     if (!operationId) return payload;
 
     const statusCode = reply.statusCode;
+    const contentType = reply.getHeader("content-type");
+    if (
+      statusCode >= 400 &&
+      typeof contentType === "string" &&
+      normalizeMediaType(contentType) === "application/problem+json"
+    ) {
+      return payload;
+    }
     if (!isDeclaredResponseStatus(operation, statusCode)) {
       reply.status(502).type("application/problem+json");
       return JSON.stringify(
@@ -667,7 +675,6 @@ export const createApp = async (): Promise<NestFastifyApplication> => {
       );
     }
 
-    const contentType = reply.getHeader("content-type");
     const responseBody =
       isJsonLikeContentType(contentType) && (typeof payload === "string" || payload instanceof Uint8Array)
         ? JSON.parse(Buffer.from(payload).toString("utf8"))

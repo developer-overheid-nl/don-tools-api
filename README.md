@@ -70,6 +70,7 @@ npm run generate   # opnieuw genereren vanuit de live OAS
 - `SERVICE_NAME`: servicenaam in ieder logrecord, standaard `tools-api-v1`
 - `OAS_FETCH_TIMEOUT_MS`: timeout voor externe specificaties, standaard `45000`
 - `OPENAPI_MOCK`: zet mock responses aan met `true`, `1`, `yes` of `on`
+- `OPENAPI_VALIDATE_RESPONSES`: valideert succesvolle responses tegen de OAS wanneer deze op `true` staat
 
 Mock mode kan ook direct via:
 
@@ -77,12 +78,21 @@ Mock mode kan ook direct via:
 npm run dev-mock
 ```
 
+## Authenticatie
+
+De publieke gateway controleert vóór deze app een `X-Api-Key` óf een OAuth2
+client-credentials-token. De runtime zelf verwacht daarom alleen verkeer van die vertrouwde
+gateway. Bij lokaal gebruik vindt geen inkomende authenticatie plaats. De `AUTH_CLIENT_ID` en
+`AUTH_CLIENT_SECRET` uit `.env` zijn uitsluitend bestemd voor de uitgaande Keycloak-adminaanroep
+van `POST /v1/auth/clients`.
+
 ## Code genereren
 
 `npm run generate` haalt de OAS op van
 `https://api.developer.overheid.nl/tools/v1/openapi.json`. Het script:
 
 - controleert en verwijdert vier identieke legacy-componentvelden op rootniveau;
+- corrigeert de API-key en client-credentials-eis naar twee alternatieve security-requirements;
 - bundelt de OAS met een vastgezette Redocly-versie;
 - valideert de bundel met DON ADR 2.1;
 - genereert NestJS/Fastify met een vastgezette templatecommit en OpenAPI Generator-versie;

@@ -27,13 +27,7 @@ const createNotImplementedProvider = (apiName: string) =>
   );
 
 export type ApiModuleConfiguration = {
-  /**
-   * your Api implementations
-   */
   apiImplementations?: Partial<ApiImplementations>;
-  /**
-   * additional Providers that may be used by your implementations
-   */
   providers?: Provider[];
 };
 

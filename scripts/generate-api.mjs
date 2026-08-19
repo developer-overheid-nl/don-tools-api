@@ -7,12 +7,13 @@ import { isDeepStrictEqual } from "node:util";
 
 const sourceUrl = "https://api.developer.overheid.nl/tools/v1/openapi.json";
 const templateRepository = "https://github.com/developer-overheid-nl/codegen-templates.git";
-const templateCommit = "9b76529acd76faae8be15a33237b435838e08f36";
+const templateCommit = "ec83f706dfa21b080edf2cbe5e186d2440b49eb2";
 const openApiGeneratorCliVersion = "2.40.1";
 const redoclyVersion = "2.46.2";
 const donCheckerVersion = "1.1.0";
 const biomeVersion = "2.5.9";
 const legacyComponentKinds = ["schemas", "responses", "headers", "securitySchemes"];
+const operationMethods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
 const generatedEntries = ["api", "app", "controllers", "decorators", "models", "tsconfig.json"];
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -34,6 +35,23 @@ export const normalizeOpenApi = (input) => {
       throw new Error(`Legacy root component ${kind} differs from components.${kind}`);
     }
     delete document[kind];
+  }
+  if (isRecord(document.paths)) {
+    for (const pathItem of Object.values(document.paths)) {
+      if (!isRecord(pathItem)) continue;
+      for (const method of operationMethods) {
+        const operation = pathItem[method];
+        if (!isRecord(operation) || !Array.isArray(operation.security)) continue;
+        operation.security = operation.security.flatMap((requirement) => {
+          if (!isRecord(requirement)) return [requirement];
+          const schemes = Object.keys(requirement).sort();
+          if (schemes.length !== 2 || schemes[0] !== "apiKey" || schemes[1] !== "clientCredentials") {
+            return [requirement];
+          }
+          return [{ apiKey: requirement.apiKey }, { clientCredentials: requirement.clientCredentials }];
+        });
+      }
+    }
   }
   return document;
 };

@@ -70,7 +70,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Arazzo Markdown (POST)
       tags:
         - Tools
@@ -102,7 +102,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Arazzo Mermaid (POST)
       tags:
         - Tools
@@ -134,7 +134,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Maak client (POST)
       tags:
         - Tools
@@ -162,7 +162,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Converteer OpenAPI 3.0/3.1
       tags:
         - Tools
@@ -191,7 +191,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Bundle OpenAPI
       tags:
         - Tools
@@ -223,7 +223,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Generate OpenAPI
       tags:
         - Tools
@@ -256,7 +256,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Validate OpenAPI (POST)
       tags:
         - Tools
@@ -284,7 +284,7 @@ paths:
           $ref: '#/components/responses/404'
       security:
         - apiKey: []
-          clientCredentials: []
+        - clientCredentials: []
       summary: Maak Postman-collectie (POST)
       tags:
         - Tools

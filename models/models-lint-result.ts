@@ -6,8 +6,5 @@ export interface ModelsLintResult {
   messages?: Array<ModelsLintMessage>;
   score?: number;
   successes?: boolean;
-  /**
-   * De gebruikte ruleset-versie voor validatie.
-   */
   rulesetVersion?: string;
 }

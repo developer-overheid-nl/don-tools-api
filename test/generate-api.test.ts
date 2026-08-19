@@ -27,4 +27,23 @@ describe("normalizeOpenApi", () => {
 
     expect(() => normalizeOpenApi(document)).toThrow(/schemas.*differs/i);
   });
+
+  it("models API key and client credentials as alternatives", () => {
+    const document = documentWithLegacyRoots();
+    document.paths = {
+      "/tools": {
+        post: {
+          security: [{ apiKey: [], clientCredentials: [] }],
+        },
+      },
+    };
+
+    expect(normalizeOpenApi(document).paths).toEqual({
+      "/tools": {
+        post: {
+          security: [{ apiKey: [] }, { clientCredentials: [] }],
+        },
+      },
+    });
+  });
 });
