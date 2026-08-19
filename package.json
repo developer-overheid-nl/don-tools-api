@@ -16,21 +16,29 @@
   "dependencies": {
     "@apiture/openapi-down-convert": "^0.14.2",
     "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#da1327dfcc83ed130b1fe5aaa282b7bfba537aee",
-    "@redocly/cli": "^2.30.3",
-    "@scalar/openapi-upgrader": "^0.2.11",
+    "@redocly/cli": "^2.46.2",
+    "@redocly/openapi-core": "^2.46.2",
+    "@redocly/respect-core": "^2.46.2",
+    "@scalar/openapi-upgrader": "^0.2.13",
+    "@stoplight/spectral-core": "^1.23.1",
     "@stoplight/spectral-parsers": "^1.0.5",
-    "@stoplight/spectral-rulesets": "^1.22.6",
+    "@stoplight/spectral-rulesets": "^1.22.7",
     "@stoplight/spectral-runtime": "^1.1.6",
     "body-parser": "^2.3.0",
     "case-anything": "^3.1.2",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-openapi-validator": "^5.6.2",
-    "js-yaml": "^5.2.1",
-    "openapi-to-postmanv2": "^6.3.1",
+    "js-yaml": "^5.3.0",
+    "openapi-to-postmanv2": "^6.3.3",
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.5"
+    "@biomejs/biome": "^2.5.9"
+  },
+  "overrides": {
+    "js-yaml@4.3.0": "4.3.1",
+    "lodash": "4.18.1",
+    "yaml@1.10.2": "1.10.3"
   }
 }
