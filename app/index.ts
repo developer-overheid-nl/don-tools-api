@@ -734,7 +734,9 @@ if (require.main === module) {
       typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
         ? error.code
         : undefined;
-    process.stderr.write(`${JSON.stringify({ event: "application.startup.failed", errorName, errorCode })}\n`);
+    process.stderr.write(
+      `${JSON.stringify({ app: "tools-api", event: "application.startup.failed", errorName, errorCode })}\n`,
+    );
     process.exitCode = 1;
   });
 }
