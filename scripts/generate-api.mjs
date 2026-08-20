@@ -7,7 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 
 const sourceUrl = "https://api.developer.overheid.nl/tools/v1/openapi.json";
 const templateRepository = "https://github.com/developer-overheid-nl/codegen-templates.git";
-const templateCommit = "e8dfdd4c33a2416bcbf4e495ade10424f13fbe83";
+const templateCommit = "27aaea6c34f78c27f96b63829cb3eb7da0f0248a";
 const openApiGeneratorCliVersion = "2.40.1";
 const redoclyVersion = "2.46.2";
 const donCheckerVersion = "1.1.0";

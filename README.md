@@ -66,12 +66,16 @@ npm run generate   # opnieuw genereren vanuit de live OAS
 
 - `PORT`: poort waarop de API luistert, standaard `1338`
 - `HOST`: host waarop Fastify bindt, standaard `0.0.0.0`
-- `LOG_LEVEL`: minimale Pino-loglevel, standaard `info`
+- `LOG_LEVEL`: minimale loglevel (`debug`, `info`, `warn` of `error`), standaard `info`
 - `OAS_FETCH_TIMEOUT_MS`: timeout voor externe specificaties, standaard `45000`
 - `OPENAPI_MOCK`: zet mock responses aan met `true`, `1`, `yes` of `on`
 - `OPENAPI_VALIDATE_RESPONSES`: valideert succesvolle responses tegen de OAS wanneer deze op `true` staat
 
-Ieder JSON-logrecord bevat het vaste veld `app` met waarde `tools-api`.
+Iedere logregel is één JSON-object op `stdout` met `time`, `level`, `msg`,
+`app`, `component` en `operation`. `app` is altijd `tools-api`. HTTP-logs
+gebruiken daarnaast `request_id`, `method`, `route`, `path`, `status_code`,
+`duration_ms` en `response_bytes`. Querystrings worden niet in `path`
+opgenomen; alleen een `5xx` response wordt als `ERROR` gelogd.
 
 Mock mode kan ook direct via:
 

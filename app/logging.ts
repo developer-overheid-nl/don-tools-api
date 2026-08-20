@@ -1,16 +1,72 @@
 import { randomUUID } from "node:crypto";
+import { pipeline, Readable, Transform } from "node:stream";
 import type { LoggerService } from "@nestjs/common";
-import type { FastifyBaseLogger, FastifyInstance, FastifyRequest, FastifyServerOptions } from "fastify";
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest, FastifyServerOptions } from "fastify";
 import { LogController } from "fastify";
+import pino, { type Logger, type LoggerOptions } from "pino";
 
+type LogLevel = "debug" | "info" | "warn" | "error";
+
+const appName = "tools-api";
 const requestIdPattern = /^[A-Za-z0-9._:-]{1,128}$/;
+const logLevels = new Set<LogLevel>(["debug", "info", "warn", "error"]);
+const logLevelLabels: Record<string, "DEBUG" | "INFO" | "WARN" | "ERROR"> = {
+  trace: "DEBUG",
+  debug: "DEBUG",
+  info: "INFO",
+  warn: "WARN",
+  error: "ERROR",
+  fatal: "ERROR",
+};
 
 const requestIdFromHeader = (header: string | string[] | undefined): string => {
   const candidate = Array.isArray(header) ? header[0] : header;
   return candidate && requestIdPattern.test(candidate) ? candidate : randomUUID();
 };
 
+const parseLogLevel = (configuredLevel = process.env.LOG_LEVEL): LogLevel => {
+  const level = configuredLevel?.trim().toLowerCase() || "info";
+  if (!logLevels.has(level as LogLevel)) {
+    throw new Error(`Unsupported LOG_LEVEL "${configuredLevel}"; use debug, info, warn or error`);
+  }
+  return level as LogLevel;
+};
+
 const pathname = (request: FastifyRequest): string => new URL(request.url, "http://localhost").pathname;
+
+const responseSize = (payload: unknown): number | undefined => {
+  if (typeof payload === "string") return Buffer.byteLength(payload);
+  if (Buffer.isBuffer(payload) || payload instanceof Uint8Array) return payload.byteLength;
+  return undefined;
+};
+
+const responseContentLength = (reply: FastifyReply): number | undefined => {
+  const header = reply.getHeader("content-length");
+  const candidate = Array.isArray(header) ? header[0] : header;
+  const value =
+    typeof candidate === "number"
+      ? candidate
+      : typeof candidate === "string"
+        ? Number.parseInt(candidate, 10)
+        : Number.NaN;
+  return Number.isInteger(value) && value >= 0 ? value : undefined;
+};
+
+const countStreamBytes = (
+  request: FastifyRequest,
+  payload: Readable,
+  responseBytes: WeakMap<FastifyRequest, number>,
+): Readable => {
+  const counter = new Transform({
+    transform(chunk, encoding, callback) {
+      const bytes = typeof chunk === "string" ? Buffer.byteLength(chunk, encoding) : chunk.byteLength;
+      responseBytes.set(request, (responseBytes.get(request) ?? 0) + bytes);
+      callback(null, chunk);
+    },
+  });
+  pipeline(payload, counter, () => undefined);
+  return counter;
+};
 
 const safeMessage = (message: unknown): string => {
   if (message instanceof Error) return message.name;
@@ -23,111 +79,124 @@ const contextFrom = (optionalParams: unknown[]): string | undefined => {
   return typeof last === "string" ? last : undefined;
 };
 
-export const createFastifyOptions = (): FastifyServerOptions => ({
-  logController: new LogController({ disableRequestLogging: true }),
-  genReqId: (request) => requestIdFromHeader(request.headers["x-request-id"]),
-  logger: {
-    level: process.env.LOG_LEVEL ?? "info",
-    base: {
-      app: "tools-api",
-      version: "1.0.0",
-      environment: process.env.NODE_ENV ?? "development",
-    },
-    redact: {
-      paths: [
-        "req.headers.authorization",
-        "req.headers.cookie",
-        "req.headers.x-api-key",
-        "request.headers.authorization",
-        "request.headers.cookie",
-        "request.headers.x-api-key",
-        "headers.authorization",
-        "headers.cookie",
-        "headers.x-api-key",
-        "body",
-        "query",
-      ],
-      censor: "[Redacted]",
-    },
+export const createLoggerOptions = (configuredLevel = process.env.LOG_LEVEL): LoggerOptions => ({
+  level: parseLogLevel(configuredLevel),
+  base: {
+    app: appName,
   },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  formatters: {
+    level: (label) => ({ level: logLevelLabels[label] ?? "INFO" }),
+  },
+  mixin: () => ({
+    component: "application",
+    operation: "log",
+  }),
+  redact: {
+    paths: [
+      "req.headers.authorization",
+      "req.headers.cookie",
+      "req.headers.x-api-key",
+      "request.headers.authorization",
+      "request.headers.cookie",
+      "request.headers.x-api-key",
+      "headers.authorization",
+      "headers.cookie",
+      "headers.x-api-key",
+      "body",
+      "query",
+    ],
+    censor: "[Redacted]",
+  },
+});
+
+export const createApplicationLogger = (configuredLevel = process.env.LOG_LEVEL): Logger =>
+  pino(createLoggerOptions(configuredLevel));
+
+export const createFastifyOptions = (): FastifyServerOptions => ({
+  logController: new LogController({ disableRequestLogging: true, requestIdLogLabel: "request_id" }),
+  genReqId: (request) => requestIdFromHeader(request.headers["x-request-id"]),
+  logger: createLoggerOptions(),
 });
 
 export const registerRequestLogging = (fastify: FastifyInstance): void => {
   const completed = new WeakSet<FastifyRequest>();
   const started = new WeakMap<FastifyRequest, bigint>();
+  const responseBytes = new WeakMap<FastifyRequest, number>();
 
-  const finish = (request: FastifyRequest, statusCode: number, event: string): void => {
+  const finish = (
+    request: FastifyRequest,
+    reply: FastifyReply | undefined,
+    statusCode: number,
+    message: string,
+  ): void => {
     if (completed.has(request)) return;
     completed.add(request);
+    const startedAt = started.get(request);
     const record = {
-      event,
-      requestId: request.id,
+      component: "http_server",
+      operation: "request",
       method: request.method,
       route: request.routeOptions?.url ?? pathname(request),
-      statusCode,
-      durationMs: Number(process.hrtime.bigint() - (started.get(request) ?? process.hrtime.bigint())) / 1_000_000,
+      path: pathname(request),
+      status_code: statusCode,
+      duration_ms: startedAt ? Math.floor(Number(process.hrtime.bigint() - startedAt) / 1_000_000) : 0,
+      response_bytes: (reply && responseContentLength(reply)) ?? responseBytes.get(request) ?? 0,
     };
-    if (statusCode >= 500) request.log.error(record, event);
-    else if (statusCode >= 400) request.log.warn(record, event);
-    else request.log.info(record, event);
+    if (statusCode >= 500) request.log.error(record, message);
+    else request.log.info(record, message);
   };
 
   fastify.addHook("onRequest", async (request, reply) => {
     started.set(request, process.hrtime.bigint());
     reply.header("X-Request-ID", request.id);
   });
+  fastify.addHook("onSend", async (request, _reply, payload) => {
+    if (payload instanceof Readable) return countStreamBytes(request, payload, responseBytes);
+    const bytes = responseSize(payload);
+    if (bytes !== undefined) responseBytes.set(request, bytes);
+    return payload;
+  });
   fastify.addHook("onResponse", async (request, reply) => {
-    finish(request, reply.statusCode, "http.request.completed");
+    finish(request, reply, reply.statusCode, "HTTP request completed");
   });
   fastify.addHook("onRequestAbort", async (request) => {
-    finish(request, 499, "http.request.aborted");
+    finish(request, undefined, 499, "HTTP request aborted");
   });
 };
 
 export class NestPinoLogger implements LoggerService {
   constructor(private readonly logger: FastifyBaseLogger) {}
 
+  private record(optionalParams: unknown[]) {
+    return {
+      component: "application",
+      operation: "log",
+      context: contextFrom(optionalParams),
+    };
+  }
+
   log(message: unknown, ...optionalParams: unknown[]): void {
-    this.logger.info({ event: "application.log", context: contextFrom(optionalParams), message: safeMessage(message) });
+    this.logger.info(this.record(optionalParams), safeMessage(message));
   }
 
   error(message: unknown, ...optionalParams: unknown[]): void {
-    this.logger.error({
-      event: "application.error",
-      context: contextFrom(optionalParams),
-      message: safeMessage(message),
-    });
+    this.logger.error(this.record(optionalParams), safeMessage(message));
   }
 
   warn(message: unknown, ...optionalParams: unknown[]): void {
-    this.logger.warn({
-      event: "application.warn",
-      context: contextFrom(optionalParams),
-      message: safeMessage(message),
-    });
+    this.logger.warn(this.record(optionalParams), safeMessage(message));
   }
 
   debug(message: unknown, ...optionalParams: unknown[]): void {
-    this.logger.debug({
-      event: "application.debug",
-      context: contextFrom(optionalParams),
-      message: safeMessage(message),
-    });
+    this.logger.debug(this.record(optionalParams), safeMessage(message));
   }
 
   verbose(message: unknown, ...optionalParams: unknown[]): void {
-    this.logger.trace({
-      event: "application.verbose",
-      context: contextFrom(optionalParams),
-      message: safeMessage(message),
-    });
+    this.logger.debug(this.record(optionalParams), safeMessage(message));
   }
 
   fatal(message: unknown, ...optionalParams: unknown[]): void {
-    this.logger.fatal({
-      event: "application.fatal",
-      context: contextFrom(optionalParams),
-      message: safeMessage(message),
-    });
+    this.logger.error(this.record(optionalParams), safeMessage(message));
   }
 }
