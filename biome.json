@@ -19,8 +19,28 @@
     }
   },
   "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
     "formatter": {
       "quoteStyle": "double"
     }
+  },
+  "files": {
+    "includes": [
+      "app/**",
+      "api/**",
+      "controllers/**",
+      "decorators/**",
+      "implementation/**",
+      "models/**",
+      "scripts/**",
+      "src/**",
+      "test/**",
+      "*.json",
+      "*.mjs",
+      "*.mts",
+      "*.ts"
+    ]
   }
 }

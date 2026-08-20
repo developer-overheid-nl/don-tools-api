@@ -1,0 +1,6 @@
+import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
+
+export const Headers = createParamDecorator((headerName: string, ctx: ExecutionContext) => {
+  const request = ctx.switchToHttp().getRequest();
+  return headerName ? request.headers?.[headerName.toLowerCase()] : request.headers;
+});

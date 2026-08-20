@@ -1,11 +1,14 @@
 .git
+.github
 .DS_Store
 .env
 .env.*
 !.env.example
+.vscode
 node_modules
 dist
 coverage
+test
 *.log
 uploaded_files
 .openapi-generator
