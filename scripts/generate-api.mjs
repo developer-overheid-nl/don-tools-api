@@ -7,7 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 
 const sourceUrl = "https://api.developer.overheid.nl/tools/v1/openapi.json";
 const templateRepository = "https://github.com/developer-overheid-nl/codegen-templates.git";
-const templateCommit = "ec83f706dfa21b080edf2cbe5e186d2440b49eb2";
+const templateCommit = "27aaea6c34f78c27f96b63829cb3eb7da0f0248a";
 const openApiGeneratorCliVersion = "2.40.1";
 const redoclyVersion = "2.46.2";
 const donCheckerVersion = "1.1.0";
@@ -140,7 +140,7 @@ export const generateApi = async () => {
       templateDirectory,
       "-c",
       join(templateDirectory, "generator-config.yaml"),
-      "--additional-properties=npmName=tools-api-v1,npmVersion=1.0.0,nestVersion=11.2.1,rxjsVersion=7.8.2,tsVersion=6.0.3,nodeVersion=22.20.1,licenseName=EUPL-1.2",
+      "--additional-properties=npmName=tools-api-v1,npmVersion=1.0.0,logAppName=tools-api,nestVersion=11.2.1,rxjsVersion=7.8.2,tsVersion=6.0.3,nodeVersion=22.20.1,licenseName=EUPL-1.2",
     ]);
     synchronizeGeneratedOutput(generatedDirectory, bundledOpenApi);
     run("npx", [
