@@ -1,13 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
+import { load as loadYaml } from "js-yaml";
 
 const sourceUrl = "https://api.developer.overheid.nl/tools/v1/openapi.json";
 const templateRepository = "https://github.com/developer-overheid-nl/codegen-templates.git";
-const templateCommit = "27aaea6c34f78c27f96b63829cb3eb7da0f0248a";
+const templateCommit = "462c1d6b264b2b2dab77bfe1bf4d886af4b425f1";
 const openApiGeneratorCliVersion = "2.40.1";
 const redoclyVersion = "2.46.2";
 const donCheckerVersion = "1.1.0";
@@ -56,13 +57,28 @@ export const normalizeOpenApi = (input) => {
   return document;
 };
 
-const fetchOpenApi = async () => {
+const downloadOpenApi = async () => {
   const response = await fetch(sourceUrl, {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`Unable to download OpenAPI document: ${response.status} ${response.statusText}`);
-  return normalizeOpenApi(await response.json());
+  return response.json();
+};
+
+// Falls back to the committed OAS, so a broken published spec cannot block the release that fixes it.
+const fetchOpenApi = async () => {
+  let document;
+  try {
+    document = await downloadOpenApi();
+  } catch (error) {
+    const localOpenApi = join(projectRoot, "api", "openapi.yaml");
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}; falling back to ${localOpenApi}\n`,
+    );
+    document = loadYaml(readFileSync(localOpenApi, "utf8"));
+  }
+  return normalizeOpenApi(document);
 };
 
 const resolveTemplateDirectory = (temporaryDirectory) => {

@@ -96,6 +96,7 @@ van `POST /v1/auth/clients`.
 `npm run generate` haalt de OAS op van
 `https://api.developer.overheid.nl/tools/v1/openapi.json`. Het script:
 
+- valt terug op de gecommitte `api/openapi.yaml` als de gepubliceerde OAS niet op te halen is;
 - controleert en verwijdert vier identieke legacy-componentvelden op rootniveau;
 - corrigeert de API-key en client-credentials-eis naar twee alternatieve security-requirements;
 - bundelt de OAS met een vastgezette Redocly-versie;
