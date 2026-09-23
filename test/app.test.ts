@@ -50,6 +50,20 @@ describe("app", () => {
     expect(body.info.title).toBe("Tools API v1");
   });
 
+  it("serves the OpenAPI spec under the version prefix", async () => {
+    const response = await inject({ method: "GET", url: "/v1/openapi.json" });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as { info: { title: string } };
+    expect(body.info.title).toBe("Tools API v1");
+  });
+
+  it("serves the OpenAPI YAML under the version prefix", async () => {
+    const response = await inject({ method: "GET", url: "/v1/openapi.yaml" });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/yaml");
+    expect(response.body).toContain("title: Tools API v1");
+  });
+
   it("returns API-Version header", async () => {
     const response = await inject({ method: "GET", url: "/openapi.json" });
     expect(response.headers["api-version"]).toBe("1.0.0");
