@@ -8,6 +8,20 @@ jobs:
   quality:
     name: Quality
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: don
+          POSTGRES_PASSWORD: don
+          POSTGRES_DB: don_events
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U don"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
@@ -31,13 +45,19 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          TEST_DB_HOSTNAME: localhost
+          TEST_DB_PORT: 5432
+          TEST_DB_USERNAME: don
+          TEST_DB_PASSWORD: don
+          TEST_DB_DBNAME: don_events
 
       - name: Run build
         run: npm run build
 
       - name: Verify generated sources
         run: |
-          npm run generate
+          OPENAPI_SOURCE=api/openapi.yaml npm run generate
           git diff --exit-code -- api app controllers decorators models tsconfig.json
 
   build-and-push:

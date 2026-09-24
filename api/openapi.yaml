@@ -30,6 +30,21 @@ info:
     Pass the obtained token with each request using the `Authorization` header. Example:
 
     `Authorization`: `Bearer {ACCESS_TOKEN}` (replace `{ACCESS_TOKEN}` with the obtained `access_token`)
+
+    ### Events
+
+    Reading events (`GET /v1/events`) is possible with an API key or with a client credentials token with scope `events:read`.
+    Creating, changing and deleting events requires a client credentials token with scope `events:write`.
+    Events harvested from Pleio can only be changed at the source; deleting such an event hides it from the agenda.
+
+    ## Pagination
+
+    Pagination of collections is done using the `Link` header.
+    Additionally, the headers `Current-Page`, `Per-Page`, `Total-Count` and `Total-Pages` provide extra support for implementing pagination in the client.
+
+    ## Dates and times
+
+    All moments in time are RFC 3339 date-times with a UTC offset, e.g. `2026-10-06T15:30:00+02:00`.
   title: Tools API v1
   version: 1.0.0
 servers:
@@ -42,6 +57,8 @@ tags:
     name: API v1
   - description: Conversies en hulpmiddelen
     name: Tools
+  - description: Agenda met (developer) events, handmatig beheerd en geharvest uit Pleio
+    name: Events
 paths:
   /v1/arazzo/markdown:
     post:
@@ -261,6 +278,163 @@ paths:
       tags:
         - Tools
       x-eov-operation-handler: controllers/ToolsController
+  /v1/events:
+    get:
+      description: Geeft de events uit de agenda, gesorteerd op begintijd (oplopend).
+      operationId: listEvents
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/EndsAfter'
+        - $ref: '#/components/parameters/StartsBefore'
+        - $ref: '#/components/parameters/EventSourceFilter'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AgendaEvent'
+                type: array
+          description: OK
+          headers:
+            API-Version:
+              $ref: '#/components/headers/API-Version'
+            Link:
+              $ref: '#/components/headers/Link'
+            Total-Count:
+              $ref: '#/components/headers/Total-Count'
+            Current-Page:
+              $ref: '#/components/headers/Current-Page'
+            Per-Page:
+              $ref: '#/components/headers/Per-Page'
+            Total-Pages:
+              $ref: '#/components/headers/Total-Pages'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - apiKey: []
+        - clientCredentials:
+            - events:read
+      summary: Lijst events
+      tags:
+        - Events
+    post:
+      description: Voegt een handmatig beheerd event toe aan de agenda.
+      operationId: createEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendaEventInput'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaEvent'
+          description: Created
+          headers:
+            API-Version:
+              $ref: '#/components/headers/API-Version'
+            Location:
+              $ref: '#/components/headers/Location'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - clientCredentials:
+            - events:write
+      summary: Maak event
+      tags:
+        - Events
+  /v1/events/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EventId'
+    get:
+      description: Geeft een event uit de agenda.
+      operationId: getEvent
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaEvent'
+          description: OK
+          headers:
+            API-Version:
+              $ref: '#/components/headers/API-Version'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - apiKey: []
+        - clientCredentials:
+            - events:read
+      summary: Haal event op
+      tags:
+        - Events
+    put:
+      description: Vervangt een handmatig beheerd event. Geharveste events kunnen alleen bij de bron worden gewijzigd.
+      operationId: updateEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendaEventInput'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgendaEvent'
+          description: OK
+          headers:
+            API-Version:
+              $ref: '#/components/headers/API-Version'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - clientCredentials:
+            - events:write
+      summary: Wijzig event
+      tags:
+        - Events
+    delete:
+      description: Verwijdert een handmatig beheerd event. Een geharvest event wordt verborgen, zodat een volgende harvest het niet terugzet.
+      operationId: deleteEvent
+      responses:
+        '204':
+          description: No Content
+          headers:
+            API-Version:
+              $ref: '#/components/headers/API-Version'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - clientCredentials:
+            - events:write
+      summary: Verwijder event
+      tags:
+        - Events
   /v1/oas/postman:
     post:
       description: 'Converteert OpenAPI naar Postman Collection JSON. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).'
@@ -299,13 +473,227 @@ components:
         example: 1.0.0
         type: string
       style: simple
+    Link:
+      description: Links naar de eerste, vorige, volgende en laatste pagina
+      schema:
+        example: <https://api.developer.overheid.nl/tools/v1/events?page=2&perPage=20>; rel="next"
+        type: string
+    Location:
+      description: URI van de aangemaakte resource
+      schema:
+        example: https://api.developer.overheid.nl/tools/v1/events/0f8d3c1e-7a3b-4f5e-9b1a-2c6d4e8f0a12
+        format: uri
+        type: string
+    Total-Count:
+      description: Totaal aantal items
+      schema:
+        example: 124
+        type: integer
+    Current-Page:
+      description: Huidige pagina
+      schema:
+        example: 1
+        type: integer
+    Per-Page:
+      description: Aantal items per pagina
+      schema:
+        example: 20
+        type: integer
+    Total-Pages:
+      description: Totaal aantal pagina's
+      schema:
+        example: 7
+        type: integer
+  parameters:
+    Page:
+      description: Paginanummer (begint bij 1).
+      in: query
+      name: page
+      required: false
+      schema:
+        default: 1
+        minimum: 1
+        type: integer
+    PerPage:
+      description: Aantal resultaten per pagina.
+      in: query
+      name: perPage
+      required: false
+      schema:
+        default: 20
+        maximum: 100
+        minimum: 1
+        type: integer
+    EndsAfter:
+      description: Alleen events die op of na dit moment eindigen. Gebruik het huidige moment voor aankomende en lopende events.
+      in: query
+      name: endsAfter
+      required: false
+      schema:
+        example: '2026-09-24T00:00:00+02:00'
+        format: date-time
+        type: string
+    StartsBefore:
+      description: Alleen events die vóór dit moment beginnen.
+      in: query
+      name: startsBefore
+      required: false
+      schema:
+        example: '2027-01-01T00:00:00+01:00'
+        format: date-time
+        type: string
+    EventSourceFilter:
+      description: Alleen events uit deze bron.
+      in: query
+      name: source
+      required: false
+      schema:
+        $ref: '#/components/schemas/AgendaEventSource'
+    EventId:
+      description: Id van het event.
+      in: path
+      name: id
+      required: true
+      schema:
+        format: uuid
+        type: string
   responses:
     '404':
       description: Resource does not exist
       headers:
         API-Version:
           $ref: '#/components/headers/API-Version'
+    BadRequest:
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemJson'
+      description: Bad request
+      headers:
+        API-Version:
+          $ref: '#/components/headers/API-Version'
+    NotFound:
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemJson'
+      description: Resource does not exist
+      headers:
+        API-Version:
+          $ref: '#/components/headers/API-Version'
+    Conflict:
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemJson'
+      description: Conflict with the current state of the resource
+      headers:
+        API-Version:
+          $ref: '#/components/headers/API-Version'
+    ServiceUnavailable:
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemJson'
+      description: Service unavailable
+      headers:
+        API-Version:
+          $ref: '#/components/headers/API-Version'
   schemas:
+    ProblemJson:
+      properties:
+        detail:
+          type: string
+        errors:
+          items:
+            properties:
+              code:
+                type: string
+              detail:
+                type: string
+              in:
+                type: string
+              location:
+                type: string
+            type: object
+          type: array
+        status:
+          type: integer
+        title:
+          type: string
+      type: object
+    AgendaEventSource:
+      description: Herkomst van het event. `manual` is via deze API beheerd, `pleio` is geharvest uit een Pleio-site.
+      enum:
+        - manual
+        - pleio
+      example: manual
+      type: string
+    AgendaEventInput:
+      properties:
+        title:
+          example: PGDay Lowlands 2026
+          maxLength: 300
+          minLength: 1
+          type: string
+        summary:
+          example: PostgreSQL-conferentie van PostgreSQL Europe, voor developers en databaseprofessionals.
+          maxLength: 2000
+          type: string
+        startsAt:
+          description: Begin van het event (RFC 3339 met UTC-offset).
+          example: '2026-09-10T09:00:00+02:00'
+          format: date-time
+          type: string
+        endsAt:
+          description: Einde van het event (RFC 3339 met UTC-offset). Mag niet vóór `startsAt` liggen.
+          example: '2026-09-10T17:00:00+02:00'
+          format: date-time
+          type: string
+        location:
+          example: TivoliVredenburg, Utrecht
+          maxLength: 300
+          type: string
+        url:
+          description: Pagina met meer informatie over het event.
+          example: https://2026.pgday.nl/
+          format: uri
+          maxLength: 2000
+          type: string
+      required:
+        - title
+        - startsAt
+        - endsAt
+        - url
+      type: object
+    AgendaEvent:
+      allOf:
+        - $ref: '#/components/schemas/AgendaEventInput'
+        - properties:
+            id:
+              example: 0f8d3c1e-7a3b-4f5e-9b1a-2c6d4e8f0a12
+              format: uuid
+              type: string
+            source:
+              $ref: '#/components/schemas/AgendaEventSource'
+            sourceName:
+              description: Naam van de bron, bijvoorbeeld de host van de Pleio-site.
+              example: digilab.pleio.nl
+              type: string
+            createdAt:
+              example: '2026-09-01T08:00:00+02:00'
+              format: date-time
+              type: string
+            updatedAt:
+              example: '2026-09-02T10:15:00+02:00'
+              format: date-time
+              type: string
+          required:
+            - id
+            - source
+            - createdAt
+            - updatedAt
+          type: object
     OasInput:
       example:
         oasUrl: oasUrl
@@ -451,5 +839,7 @@ components:
         clientCredentials:
           scopes:
             tools: Access to tools endpoints
+            events:read: Read events
+            events:write: Create, change and delete events
           tokenUrl: https://auth.developer.overheid.nl/realms/don/protocol/openid-connect/token
       type: oauth2

@@ -1,6 +1,6 @@
 import { type DynamicModule, HttpException, Module, type Provider } from "@nestjs/common";
-import { ToolsApi } from "../api";
-import { ToolsApiController } from "../controllers";
+import { EventsApi, ToolsApi } from "../api";
+import { EventsApiController, ToolsApiController } from "../controllers";
 import type { ApiImplementations } from "./api-implementations";
 
 const createNotImplementedProvider = (apiName: string) =>
@@ -35,6 +35,15 @@ export type ApiModuleConfiguration = {
 export class ApiModule {
   static forRoot(configuration: ApiModuleConfiguration = {}): DynamicModule {
     const providers: Provider[] = [
+      configuration.apiImplementations?.eventsApi
+        ? {
+            provide: EventsApi,
+            useClass: configuration.apiImplementations.eventsApi,
+          }
+        : {
+            provide: EventsApi,
+            useValue: createNotImplementedProvider("EventsApi"),
+          },
       configuration.apiImplementations?.toolsApi
         ? {
             provide: ToolsApi,
@@ -49,7 +58,7 @@ export class ApiModule {
 
     return {
       module: ApiModule,
-      controllers: [ToolsApiController],
+      controllers: [EventsApiController, ToolsApiController],
       providers: [...providers],
       exports: [...providers],
     };
