@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { ToolsApi } from "../api";
 import type { ApiImplementations } from "../app/api-implementations";
 import type { ModelsKeycloakClientResult, ModelsLintResult, OasInput, UntrustClientInput } from "../models";
+import { EventsService } from "./events/service";
 
 const loadTools = () => import("@developer-overheid-nl/don-tools");
 
@@ -78,5 +79,6 @@ class ToolsService extends ToolsApi {
 }
 
 export const apiImplementations: Partial<ApiImplementations> = {
+  eventsApi: EventsService,
   toolsApi: ToolsService,
 };

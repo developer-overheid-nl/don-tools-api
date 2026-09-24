@@ -68,6 +68,10 @@ const downloadOpenApi = async () => {
 
 // Falls back to the committed OAS, so a broken published spec cannot block the release that fixes it.
 const fetchOpenApi = async () => {
+  // OPENAPI_SOURCE generates from a local file, e.g. to add operations that are not yet published.
+  if (process.env.OPENAPI_SOURCE) {
+    return normalizeOpenApi(loadYaml(readFileSync(resolve(process.env.OPENAPI_SOURCE), "utf8")));
+  }
   let document;
   try {
     document = await downloadOpenApi();
