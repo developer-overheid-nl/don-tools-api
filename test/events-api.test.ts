@@ -161,8 +161,9 @@ describe.skipIf(!testDatabase)("events API with PostgreSQL", () => {
   it("scopes the harvest lock to the schema", async () => {
     const otherSchema = `${schema}_other`;
     await pool.query(`CREATE SCHEMA ${otherSchema}`);
-    const database = pool.options;
-    const otherPool = new Pool({ ...database, options: `-c search_path=${otherSchema}` });
+    // pg-pool keeps the password non-enumerable, so a spread of pool.options would drop it.
+    const { password } = pool.options;
+    const otherPool = new Pool({ ...pool.options, password, options: `-c search_path=${otherSchema}` });
     try {
       const results = await withAdvisoryLock(pool, HARVEST_LOCK, async () => ({
         sameSchema: await withAdvisoryLock(pool, HARVEST_LOCK, async () => "ran"),
