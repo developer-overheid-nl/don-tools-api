@@ -47,14 +47,20 @@ Events komen uit twee bronnen:
   GraphQL-query `activities` (introspection staat bij Pleio uit, dus de query is vast) en
   doet een upsert op `(bron, Pleio-guid)`. Alleen events waarvan `timeUpdated` veranderd is
   worden bijgewerkt. Toekomstige events die de bron niet meer toont, worden verwijderd;
-  afgelopen events blijven bewaard.
+  afgelopen events blijven bewaard. Een Pleio-event dat niet te verwerken is (bijvoorbeeld
+  zonder titel of met een url die geen http(s) is), wordt overgeslagen en met een `WARN`
+  gelogd. Zo'n event blijft in de agenda staan zoals het was. Heeft het ook geen guid,
+  dan wordt er die run voor die bron niets verwijderd. Tekst langer dan de limieten in
+  de OAS wordt ingekort.
 
 Geharveste events zijn alleen bij de bron te wijzigen (`PUT` geeft `409`). Een `DELETE`
 verbergt zo'n event, zodat een volgende harvest het niet terugzet.
 
 De harvest draait in het proces: bij het opstarten en daarna volgens `PLEIO_HARVEST_CRON`.
 Een PostgreSQL advisory lock zorgt dat bij meerdere replicas maar één instantie tegelijk
-harvest.
+harvest. De lock geldt per schema, dus omgevingen met elk een eigen `DB_SCHEMA` in dezelfde
+database zitten elkaar niet in de weg. Bij het afsluiten wacht de app tot een lopende
+harvest klaar is.
 
 ### Database
 
@@ -111,9 +117,12 @@ npm run generate   # opnieuw genereren vanuit de live OAS
 - `DB_HOSTNAME`, `DB_PORT` (standaard `5432`), `DB_USERNAME`, `DB_PASSWORD`, `DB_DBNAME`,
   `DB_SCHEMA` (standaard `public`): PostgreSQL voor de events. Zonder `DB_HOSTNAME` geven de
   events-endpoints `503` en draait er geen harvest; de tools-endpoints werken gewoon.
+  Een ongeldige waarde in een van de events-variabelen hieronder laat de app bij het
+  opstarten stoppen met een foutmelding, in plaats van stil een standaardwaarde te gebruiken.
 - `DB_POOL_MAX`: maximaal aantal databaseverbindingen, standaard `5`
 - `PUBLIC_BASE_URL`: publiek adres vóór de gateway (bijvoorbeeld
-  `https://api.developer.overheid.nl/tools`), gebruikt in `Location` en `Link`
+  `https://api.developer.overheid.nl/tools`), gebruikt in `Location` en `Link`. Zonder deze
+  variabele komen die uit de request-host, en logt de app bij het opstarten een waarschuwing.
 - `EVENTS_TIME_ZONE`: tijdzone voor de offset in responses, standaard `Europe/Amsterdam`
 - `PLEIO_SOURCES`: kommagescheiden Pleio-sites, standaard `https://digilab.pleio.nl`
 - `PLEIO_HARVEST_ENABLED`: zet de harvest aan of uit, standaard `true`

@@ -2,6 +2,9 @@ import type { Logger } from "pino";
 import { type Fetch, fetchUpcomingEvents } from "./pleio";
 import type { EventsRepository } from "./repository";
 
+const SOURCE = "pleio";
+const LOG_FIELDS = { component: "events", operation: "pleio_harvest" };
+
 export type SourceHarvestResult = {
   source: string;
   inserted: number;
@@ -23,7 +26,7 @@ export const harvestPleio = async (
     const sourceName = new URL(origin).host;
     const startedAt = performance.now();
     try {
-      const { events, skipped } = await fetchUpcomingEvents(origin, { timeoutMs, fetchImpl });
+      const { events, unmappedIds, skipped } = await fetchUpcomingEvents(origin, { timeoutMs, fetchImpl });
       const result: SourceHarvestResult = {
         source: sourceName,
         inserted: 0,
@@ -32,29 +35,24 @@ export const harvestPleio = async (
         removed: 0,
         skipped,
       };
-      for (const event of events) result[await repository.upsertHarvested(sourceName, event)]++;
-      // A skipped entity may be a stored event that no longer maps (e.g. a Pleio schema change), so nothing is removed then.
-      if (skipped === 0) {
-        result.removed = await repository.removeVanished(
-          sourceName,
-          events.map((event) => event.externalId),
-        );
+      for (const event of events) result[await repository.upsertHarvested(SOURCE, sourceName, event)]++;
+      // Unmapped entities with a guid still exist at the source, so their stored version is kept. Without a guid it is
+      // unknown which stored event an entity is, so nothing is removed for that source in this run.
+      if (unmappedIds.length === skipped) {
+        const listed = [...events.map((event) => event.externalId), ...unmappedIds];
+        result.removed = await repository.removeVanished(SOURCE, sourceName, listed);
       }
       results.push(result);
-      logger.info(
-        {
-          component: "events",
-          operation: "pleio_harvest",
-          ...result,
-          duration_ms: Math.round(performance.now() - startedAt),
-        },
-        "pleio harvest completed",
-      );
+      const fields = { ...LOG_FIELDS, ...result, duration_ms: Math.round(performance.now() - startedAt) };
+      if (skipped > 0) {
+        logger.warn({ ...fields, unmapped_ids: unmappedIds }, "pleio harvest completed with skipped events");
+      } else {
+        logger.info(fields, "pleio harvest completed");
+      }
     } catch (error) {
       logger.error(
         {
-          component: "events",
-          operation: "pleio_harvest",
+          ...LOG_FIELDS,
           source: sourceName,
           duration_ms: Math.round(performance.now() - startedAt),
           error_message: error instanceof Error ? error.message : String(error),

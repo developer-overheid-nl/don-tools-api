@@ -134,10 +134,14 @@ export class EventsRepository {
   }
 
   // Inserts new events and refreshes changed ones (always when the source gives no timeUpdated); hidden_at is left untouched.
-  async upsertHarvested(sourceName: string, event: HarvestedEvent): Promise<"inserted" | "updated" | "unchanged"> {
+  async upsertHarvested(
+    source: AgendaEventSource,
+    sourceName: string,
+    event: HarvestedEvent,
+  ): Promise<"inserted" | "updated" | "unchanged"> {
     const { rows } = await this.pool.query<{ inserted: boolean }>(
       `INSERT INTO events (source, source_name, external_id, title, summary, location, url, starts_at, ends_at, source_updated_at)
-       VALUES ('pleio', $1, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (source, source_name, external_id) DO UPDATE SET
          title = EXCLUDED.title,
          summary = EXCLUDED.summary,
@@ -150,6 +154,7 @@ export class EventsRepository {
        WHERE EXCLUDED.source_updated_at IS NULL OR events.source_updated_at IS DISTINCT FROM EXCLUDED.source_updated_at
        RETURNING (xmax = 0) AS inserted`,
       [
+        source,
         sourceName,
         event.externalId,
         event.title,
@@ -166,11 +171,11 @@ export class EventsRepository {
   }
 
   // Removes future events that the source no longer lists (cancelled or deleted there); past events are kept.
-  async removeVanished(sourceName: string, seenExternalIds: string[]): Promise<number> {
+  async removeVanished(source: AgendaEventSource, sourceName: string, seenExternalIds: string[]): Promise<number> {
     const { rowCount } = await this.pool.query(
       `DELETE FROM events
-       WHERE source = 'pleio' AND source_name = $1 AND starts_at > now() AND NOT (external_id = ANY($2::text[]))`,
-      [sourceName, seenExternalIds],
+       WHERE source = $1 AND source_name = $2 AND starts_at > now() AND NOT (external_id = ANY($3::text[]))`,
+      [source, sourceName, seenExternalIds],
     );
     return rowCount ?? 0;
   }

@@ -4,12 +4,15 @@ import { Pool } from "pg";
 import pino from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app/index.ts";
+import { HARVEST_LOCK, withAdvisoryLock } from "../implementation/events/database.ts";
 import { harvestPleio } from "../implementation/events/harvester.ts";
 import { EventsRepository } from "../implementation/events/repository.ts";
 
 // Runs against a real PostgreSQL, e.g.: docker run --rm -p 55432:5432 -e POSTGRES_PASSWORD=don postgres:17
 // TEST_DB_HOSTNAME=localhost TEST_DB_PORT=55432 TEST_DB_USERNAME=postgres TEST_DB_PASSWORD=don TEST_DB_DBNAME=postgres npm test
 const testDatabase = process.env.TEST_DB_HOSTNAME;
+// In CI a missing database must fail the run instead of silently skipping these tests.
+if (process.env.CI && !testDatabase) throw new Error("TEST_DB_HOSTNAME is required in CI");
 const schema = `events_test_${process.pid}`;
 
 let app: NestFastifyApplication;
@@ -141,7 +144,35 @@ describe.skipIf(!testDatabase)("events API with PostgreSQL", () => {
     });
     expect(withoutOffset.statusCode).toBe(400);
 
+    const blankTitle = await inject({ method: "POST", url: "/v1/events", payload: { ...manualEvent, title: "   " } });
+    expect(blankTitle.statusCode).toBe(400);
+
+    const scriptUrl = await inject({
+      method: "POST",
+      url: "/v1/events",
+      payload: { ...manualEvent, url: "javascript:alert(1)" },
+    });
+    expect(scriptUrl.statusCode).toBe(400);
+
     expect((await inject({ method: "GET", url: "/v1/events/not-a-uuid" })).statusCode).toBe(400);
+    expect((await inject({ method: "GET", url: "/v1/events?perPage=101" })).statusCode).toBe(400);
+  });
+
+  it("scopes the harvest lock to the schema", async () => {
+    const otherSchema = `${schema}_other`;
+    await pool.query(`CREATE SCHEMA ${otherSchema}`);
+    const database = pool.options;
+    const otherPool = new Pool({ ...database, options: `-c search_path=${otherSchema}` });
+    try {
+      const results = await withAdvisoryLock(pool, HARVEST_LOCK, async () => ({
+        sameSchema: await withAdvisoryLock(pool, HARVEST_LOCK, async () => "ran"),
+        otherSchema: await withAdvisoryLock(otherPool, HARVEST_LOCK, async () => "ran"),
+      }));
+      expect(results).toEqual({ sameSchema: undefined, otherSchema: "ran" });
+    } finally {
+      await otherPool.end();
+      await pool.query(`DROP SCHEMA ${otherSchema}`);
+    }
   });
 
   it("filters, sorts and paginates the list", async () => {
@@ -218,7 +249,9 @@ describe.skipIf(!testDatabase)("events API with PostgreSQL", () => {
     await run([pleioEntity("a", future, "2026-09-05T10:00:00+00:00"), pleioEntity("b", later)]);
     expect((await inject({ method: "GET", url: `/v1/events/${first?.id}` })).statusCode).toBe(404);
 
-    expect(await run([pleioEntity("a", future), { guid: "broken" }])).toMatchObject([{ skipped: 1, removed: 0 }]);
+    // An unmappable entity with a known guid keeps its stored event; one without a guid blocks removal for the run.
+    expect(await run([pleioEntity("a", future), { guid: "b" }])).toMatchObject([{ skipped: 1, removed: 0 }]);
+    expect(await run([pleioEntity("a", future), { title: "Zonder guid" }])).toMatchObject([{ skipped: 1, removed: 0 }]);
     expect(await run([pleioEntity("a", future)])).toMatchObject([{ removed: 1 }]);
 
     const withoutTimeUpdated = { ...pleioEntity("a", future), timeUpdated: null };

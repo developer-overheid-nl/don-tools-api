@@ -13,15 +13,13 @@ import { EventsApi } from "../../api";
 import { createApplicationLogger } from "../../app/logging";
 import type { AgendaEvent, AgendaEventInput, AgendaEventSource } from "../../models";
 import { type EventsConfig, loadEventsConfig } from "./config";
-import { HARVEST_LOCK, withAdvisoryLock } from "./database";
-import { formatDateTime, parseDateTime } from "./datetime";
+import { HARVEST_LOCK, isDatabaseUnavailable, withAdvisoryLock } from "./database";
+import { formatDateTime, isHttpUrl, parseDateTime } from "./datetime";
 import { harvestPleio, type SourceHarvestResult } from "./harvester";
 import { type EventFields, type EventRecord, EventsRepository } from "./repository";
 
-const toPositiveInt = (value: unknown, fallback: number): number => {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-};
+// Explicit fields instead of pino child bindings: the application logger's mixin would add a second `component`.
+const logFields = (operation: string) => ({ component: "events", operation });
 
 const notFound = (id: string) => new HttpException(`Event ${id} does not exist`, 404);
 
@@ -29,26 +27,23 @@ const notFound = (id: string) => new HttpException(`Event ${id} does not exist`,
 export class EventsService extends EventsApi implements OnModuleInit, OnApplicationShutdown {
   private readonly config: EventsConfig = loadEventsConfig();
   private readonly logger: Logger = createApplicationLogger();
-  private pool?: Pool;
-  private repository?: EventsRepository;
+  private database?: { pool: Pool; repository: EventsRepository };
   private harvestJob?: Cron;
+  private runningHarvest?: Promise<SourceHarvestResult[] | undefined>;
 
   onModuleInit(): void {
     if (!this.config.database) {
-      this.logger.warn(
-        { component: "events", operation: "init" },
-        "DB_HOSTNAME is not set; events endpoints are disabled",
-      );
+      this.logger.warn(logFields("init"), "DB_HOSTNAME is not set; events endpoints are disabled");
       return;
     }
-    this.pool = new Pool(this.config.database);
-    this.pool.on("error", (error) =>
-      this.logger.error(
-        { component: "events", operation: "database", error_message: error.message },
-        "idle database client failed",
-      ),
+    if (!this.config.publicBaseUrl) {
+      this.logger.warn(logFields("init"), "PUBLIC_BASE_URL is not set; Location and Link headers use the request host");
+    }
+    const pool = new Pool(this.config.database);
+    pool.on("error", (error) =>
+      this.logger.error({ ...logFields("database"), error_message: error.message }, "idle database client failed"),
     );
-    this.repository = new EventsRepository(this.pool);
+    this.database = { pool, repository: new EventsRepository(pool) };
     if (!this.config.harvest.enabled || this.config.harvest.sources.length === 0) return;
     this.harvestJob = new Cron(
       this.config.harvest.cron,
@@ -60,40 +55,45 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
     void this.harvest();
   }
 
+  // Waits for a running harvest, so the pool is not ended under its queries.
   async onApplicationShutdown(): Promise<void> {
     this.harvestJob?.stop();
-    await this.pool?.end();
+    await this.runningHarvest;
+    await this.database?.pool.end();
   }
 
-  // The schema is created by hand (db/*.sql); the app never runs DDL.
-  private requireRepository(): EventsRepository {
-    if (!this.repository) throw new ServiceUnavailableException("Events are not configured");
-    return this.repository;
-  }
-
+  // The schema is created by hand (db/*.sql); the app never runs DDL. Only database outages become 503; any other
+  // error is a bug and reaches the global filter as 500.
   private async withRepository<T>(work: (repository: EventsRepository) => Promise<T>): Promise<T> {
-    const repository = this.requireRepository();
+    if (!this.database) throw new ServiceUnavailableException("Events are not configured");
     try {
-      return await work(repository);
+      return await work(this.database.repository);
     } catch (error) {
-      if (error instanceof HttpException) throw error;
+      if (!isDatabaseUnavailable(error)) throw error;
       this.logger.error(
         {
-          component: "events",
-          operation: "query",
+          ...logFields("query"),
+          error_code: (error as { code?: string }).code,
           error_message: error instanceof Error ? error.message : String(error),
         },
-        "events query failed",
+        "events database is unavailable",
       );
       throw new ServiceUnavailableException("Events database is unavailable");
     }
   }
 
-  async harvest(): Promise<SourceHarvestResult[] | undefined> {
-    const fields = { component: "events", operation: "pleio_harvest" };
+  harvest(): Promise<SourceHarvestResult[] | undefined> {
+    this.runningHarvest ??= this.runHarvest().finally(() => {
+      this.runningHarvest = undefined;
+    });
+    return this.runningHarvest;
+  }
+
+  private async runHarvest(): Promise<SourceHarvestResult[] | undefined> {
+    const fields = logFields("pleio_harvest");
     try {
-      const repository = this.requireRepository();
-      const pool = this.pool as Pool;
+      if (!this.database) throw new Error("Events are not configured");
+      const { pool, repository } = this.database;
       const results = await withAdvisoryLock(pool, HARVEST_LOCK, () =>
         harvestPleio(repository, this.config.harvest.sources, this.logger, {
           timeoutMs: this.config.harvest.timeoutMs,
@@ -127,13 +127,17 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
     };
   }
 
+  // Format, length and required fields are validated against the OAS before this runs.
   private toFields(input: AgendaEventInput): EventFields {
+    const title = input.title.trim();
+    if (!title) throw new HttpException("title must not be blank", 400);
+    if (!isHttpUrl(input.url)) throw new HttpException("url must be an http or https url", 400);
     const startsAt = parseDateTime(input.startsAt);
     const endsAt = parseDateTime(input.endsAt);
     if (!startsAt || !endsAt) throw new HttpException("startsAt and endsAt must be RFC 3339 date-times", 400);
     if (endsAt < startsAt) throw new HttpException("endsAt must not be before startsAt", 400);
     return {
-      title: input.title.trim(),
+      title,
       summary: input.summary?.trim(),
       location: input.location?.trim(),
       url: input.url,
@@ -156,8 +160,9 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<AgendaEvent[]> {
-    const currentPage = toPositiveInt(page, 1);
-    const pageSize = Math.min(toPositiveInt(perPage, 20), 100);
+    // Query values arrive as strings; the OAS already enforced their range and the controller their defaults.
+    const currentPage = Number(page);
+    const pageSize = Number(perPage);
     const { events, total } = await this.withRepository((repository) =>
       repository.list({
         endsAfter: endsAfter ? parseDateTime(endsAfter) : undefined,

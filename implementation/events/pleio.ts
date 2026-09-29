@@ -1,4 +1,4 @@
-import { parseDateTime } from "./datetime";
+import { isHttpUrl, parseDateTime } from "./datetime";
 import type { HarvestedEvent } from "./repository";
 
 // Pleio disables introspection, so this is a fixed query; event fields must be inside `... on Event`.
@@ -53,22 +53,40 @@ type PleioResponse = {
 
 export type Fetch = typeof fetch;
 
-const trimmed = (value: string | null | undefined): string | undefined => value?.trim() || undefined;
+// Limits of AgendaEventInput in the OAS; harvested events must satisfy the same response contract.
+const MAX_TITLE = 300;
+const MAX_SUMMARY = 2000;
+const MAX_LOCATION = 300;
+const MAX_URL = 2000;
+
+// Pleio data is not typed at runtime, so non-strings are treated as missing.
+const text = (value: unknown, maxLength: number): string | undefined => {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return undefined;
+  return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength - 1).trimEnd()}…` : trimmed;
+};
+
+const resolveUrl = (value: unknown, origin: string): string | undefined => {
+  if (typeof value !== "string" || !value) return undefined;
+  const url = URL.parse(value, origin)?.toString();
+  return url && url.length <= MAX_URL && isHttpUrl(url) ? url : undefined;
+};
 
 export const toHarvestedEvent = (origin: string, entity: PleioEvent): HarvestedEvent | undefined => {
-  const title = trimmed(entity.title);
-  const startsAt = entity.startDate ? parseDateTime(entity.startDate) : undefined;
-  if (!entity.guid || !title || !startsAt || !entity.url) return undefined;
-  const endsAt = entity.endDate ? parseDateTime(entity.endDate) : undefined;
+  const title = text(entity.title, MAX_TITLE);
+  const url = resolveUrl(entity.url, origin);
+  const startsAt = typeof entity.startDate === "string" ? parseDateTime(entity.startDate) : undefined;
+  if (typeof entity.guid !== "string" || !entity.guid || !title || !startsAt || !url) return undefined;
+  const endsAt = typeof entity.endDate === "string" ? parseDateTime(entity.endDate) : undefined;
   return {
     externalId: entity.guid,
     title,
-    summary: trimmed(entity.excerpt),
-    location: trimmed(entity.location),
-    url: new URL(entity.url, origin).toString(),
+    summary: text(entity.excerpt, MAX_SUMMARY),
+    location: text(entity.location, MAX_LOCATION),
+    url,
     startsAt,
     endsAt: endsAt && endsAt >= startsAt ? endsAt : startsAt,
-    sourceUpdatedAt: entity.timeUpdated ? parseDateTime(entity.timeUpdated) : undefined,
+    sourceUpdatedAt: typeof entity.timeUpdated === "string" ? parseDateTime(entity.timeUpdated) : undefined,
   };
 };
 
@@ -77,7 +95,7 @@ const fetchPage = async (
   offset: number,
   timeoutMs: number,
   fetchImpl: Fetch,
-): Promise<{ total: number; entities: PleioEvent[] }> => {
+): Promise<{ total: number; edges: number; entities: PleioEvent[] }> => {
   const response = await fetchImpl(`${origin}/graphql`, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
@@ -91,29 +109,51 @@ const fetchPage = async (
   }
   const activities = body.data?.activities;
   if (!activities) throw new Error(`Pleio ${origin} returned no activities`);
+  const edges = activities.edges ?? [];
   return {
     total: activities.total ?? 0,
-    entities: (activities.edges ?? []).flatMap((edge) => (edge.entity ? [edge.entity] : [])),
+    edges: edges.length,
+    entities: edges.flatMap((edge) => (edge.entity ? [edge.entity] : [])),
   };
+};
+
+export type UpcomingEvents = {
+  events: HarvestedEvent[];
+  // Guids of listed entities that could not be mapped; they still exist at the source.
+  unmappedIds: string[];
+  // Entities that could not be mapped, including those without a usable guid.
+  skipped: number;
+};
+
+const mapEntity = (origin: string, entity: PleioEvent): HarvestedEvent | undefined => {
+  try {
+    return toHarvestedEvent(origin, entity);
+  } catch {
+    return undefined;
+  }
 };
 
 // Fetches all upcoming events of one Pleio site; throws unless every page was read, so callers can trust completeness.
 export const fetchUpcomingEvents = async (
   origin: string,
   { timeoutMs, fetchImpl = fetch }: { timeoutMs: number; fetchImpl?: Fetch },
-): Promise<{ events: HarvestedEvent[]; skipped: number }> => {
-  const events: HarvestedEvent[] = [];
-  let skipped = 0;
+): Promise<UpcomingEvents> => {
+  const result: UpcomingEvents = { events: [], unmappedIds: [], skipped: 0 };
   for (let page = 0, offset = 0; ; page++) {
     if (page >= MAX_PAGES) throw new Error(`Pleio ${origin} has more than ${MAX_PAGES * PAGE_SIZE} upcoming events`);
-    const { total, entities } = await fetchPage(origin, offset, timeoutMs, fetchImpl);
+    const { total, edges, entities } = await fetchPage(origin, offset, timeoutMs, fetchImpl);
     for (const entity of entities) {
-      const event = toHarvestedEvent(origin, entity);
-      if (event) events.push(event);
-      else skipped++;
+      const event = mapEntity(origin, entity);
+      if (event) {
+        result.events.push(event);
+        continue;
+      }
+      result.skipped++;
+      if (typeof entity.guid === "string" && entity.guid) result.unmappedIds.push(entity.guid);
     }
-    offset += entities.length;
-    if (entities.length === 0 || offset >= total) break;
+    // Pagination counts edges, also those whose entity is null.
+    offset += edges;
+    if (edges === 0 || offset >= total) break;
   }
-  return { events, skipped };
+  return result;
 };

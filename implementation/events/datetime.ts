@@ -1,7 +1,10 @@
-// Formats an instant as an RFC 3339 date-time with the UTC offset of the given time zone (ADR: always include an offset).
-export const formatDateTime = (instant: Date, timeZone: string): string => {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+// Creating a formatter is costly and throws a RangeError for an unknown time zone, so it is done once per zone.
+export const formatterFor = (timeZone: string): Intl.DateTimeFormat => {
+  let formatter = formatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
       timeZone,
       hourCycle: "h23",
       year: "numeric",
@@ -10,7 +13,16 @@ export const formatDateTime = (instant: Date, timeZone: string): string => {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-    })
+    });
+    formatters.set(timeZone, formatter);
+  }
+  return formatter;
+};
+
+// Formats an instant as an RFC 3339 date-time with the UTC offset of the given time zone (ADR: always include an offset).
+export const formatDateTime = (instant: Date, timeZone: string): string => {
+  const parts = Object.fromEntries(
+    formatterFor(timeZone)
       .formatToParts(instant)
       .map((part) => [part.type, part.value]),
   );
@@ -28,4 +40,13 @@ export const formatDateTime = (instant: Date, timeZone: string): string => {
 export const parseDateTime = (value: string): Date | undefined => {
   const instant = new Date(value);
   return Number.isNaN(instant.getTime()) ? undefined : instant;
+};
+
+export const isHttpUrl = (value: string): boolean => {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
 };

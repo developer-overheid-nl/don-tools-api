@@ -45,8 +45,18 @@ describe("toHarvestedEvent", () => {
 
   it("skips entities that are not usable events", () => {
     expect(toHarvestedEvent(origin, { guid: "x" })).toBeUndefined();
+    expect(toHarvestedEvent(origin, entity("a", { url: "javascript:alert(1)" }))).toBeUndefined();
+    expect(toHarvestedEvent(origin, entity("a", { url: "http://[invalid" }))).toBeUndefined();
+    expect(toHarvestedEvent(origin, entity("a", { title: 42 }))).toBeUndefined();
     expect(toHarvestedEvent(origin, entity("a", { startDate: "not a date" }))).toBeUndefined();
     expect(toHarvestedEvent(origin, entity("a", { title: "  " }))).toBeUndefined();
+  });
+
+  it("keeps text within the limits of the OAS", () => {
+    const event = toHarvestedEvent(origin, entity("a", { title: "x".repeat(400), location: 7 }));
+    expect(event?.title).toHaveLength(300);
+    expect(event?.title.endsWith("…")).toBe(true);
+    expect(event?.location).toBeUndefined();
   });
 });
 
@@ -65,6 +75,31 @@ describe("fetchUpcomingEvents", () => {
     expect(offsets).toEqual([0, 50]);
     expect(events).toHaveLength(60);
     expect(skipped).toBe(0);
+  });
+
+  it("pages by edges, also when an entity is null", async () => {
+    const offsets: number[] = [];
+    const all = [null, ...Array.from({ length: 59 }, (_, index) => entity(`e${index}`))];
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      const { variables } = JSON.parse(String(init.body)) as { variables: { offset: number } };
+      offsets.push(variables.offset);
+      return pleioResponse(all.length, all.slice(variables.offset, variables.offset + 50));
+    }) as typeof fetch;
+
+    const { events, skipped } = await fetchUpcomingEvents(origin, { timeoutMs: 1000, fetchImpl });
+
+    expect(offsets).toEqual([0, 50]);
+    expect(events).toHaveLength(59);
+    expect(skipped).toBe(0);
+  });
+
+  it("reports unmappable entities by guid", async () => {
+    const fetchImpl = (async () =>
+      pleioResponse(3, [entity("a"), entity("b", { url: null }), { title: "zonder guid" }])) as unknown as typeof fetch;
+    expect(await fetchUpcomingEvents(origin, { timeoutMs: 1000, fetchImpl })).toMatchObject({
+      unmappedIds: ["b"],
+      skipped: 2,
+    });
   });
 
   it("fails on GraphQL errors, so a partial result never removes events", async () => {
