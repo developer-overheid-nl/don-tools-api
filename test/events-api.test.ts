@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { Pool } from "pg";
 import pino from "pino";
@@ -48,26 +49,35 @@ const pleioFetch = (entities: unknown[]) =>
 
 describe.skipIf(!testDatabase)("events API with PostgreSQL", () => {
   beforeAll(async () => {
+    const database = {
+      host: testDatabase,
+      port: Number(process.env.TEST_DB_PORT ?? 5432),
+      user: process.env.TEST_DB_USERNAME,
+      password: process.env.TEST_DB_PASSWORD,
+      database: process.env.TEST_DB_DBNAME,
+    };
+    // Mirrors the manual setup: an empty schema with db/*.sql applied.
+    const setup = new Pool(database);
+    await setup.query(`CREATE SCHEMA ${schema}`);
+    await setup.end();
+    pool = new Pool({ ...database, options: `-c search_path=${schema}` });
+    const sqlDirectory = new URL("../db/", import.meta.url);
+    for (const file of readdirSync(sqlDirectory).sort()) {
+      await pool.query(readFileSync(new URL(file, sqlDirectory), "utf8"));
+    }
+
     Object.assign(process.env, {
       DB_HOSTNAME: testDatabase,
-      DB_PORT: process.env.TEST_DB_PORT ?? "5432",
-      DB_USERNAME: process.env.TEST_DB_USERNAME,
-      DB_PASSWORD: process.env.TEST_DB_PASSWORD,
-      DB_DBNAME: process.env.TEST_DB_DBNAME,
+      DB_PORT: String(database.port),
+      DB_USERNAME: database.user,
+      DB_PASSWORD: database.password,
+      DB_DBNAME: database.database,
       DB_SCHEMA: schema,
       PLEIO_HARVEST_ENABLED: "false",
       PUBLIC_BASE_URL: "https://api.example.nl/tools",
     });
     app = await createApp();
     await app.init();
-    pool = new Pool({
-      host: testDatabase,
-      port: Number(process.env.TEST_DB_PORT ?? 5432),
-      user: process.env.TEST_DB_USERNAME,
-      password: process.env.TEST_DB_PASSWORD,
-      database: process.env.TEST_DB_DBNAME,
-      options: `-c search_path=${schema}`,
-    });
   });
 
   afterAll(async () => {

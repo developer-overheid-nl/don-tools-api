@@ -54,7 +54,21 @@ verbergt zo'n event, zodat een volgende harvest het niet terugzet.
 
 De harvest draait in het proces: bij het opstarten en daarna volgens `PLEIO_HARVEST_CRON`.
 Een PostgreSQL advisory lock zorgt dat bij meerdere replicas maar één instantie tegelijk
-harvest. Migraties draaien bij het eerste gebruik van de database, ook onder een advisory lock.
+harvest.
+
+### Database
+
+De app voert geen DDL uit; het schema wordt met de hand aangemaakt. De SQL staat in `db/`,
+genummerd in volgorde van uitvoeren. Een schemawijziging is een nieuw bestand, nooit een
+aanpassing van een bestaand bestand.
+
+```sh
+psql "host=<host> dbname=don_events user=<admin>" -v ON_ERROR_STOP=1 -f db/001_create_events.sql
+```
+
+Draai dit in het schema van `DB_SCHEMA` (standaard `public`). De applicatiegebruiker heeft
+alleen `SELECT`, `INSERT`, `UPDATE` en `DELETE` op `events` nodig. Bestaat de tabel nog niet,
+dan geven de events-endpoints `503` en logt de harvest een fout.
 
 Tijden volgen ADR 2.2: RFC 3339 met UTC-offset (`2026-10-06T15:30:00+02:00`). Velden heten
 `startsAt`/`endsAt`, omdat de ADR-regel voor namen met `Date` `format: date` afdwingt.
@@ -182,7 +196,8 @@ npm run build
 npm test
 ```
 
-De integratietests voor events draaien alleen met een PostgreSQL-database:
+De integratietests voor events draaien alleen met een PostgreSQL-database; ze maken een
+tijdelijk schema aan en voeren daarin `db/*.sql` uit:
 
 ```sh
 docker run --rm -d --name don-events-pg -p 55432:5432 -e POSTGRES_PASSWORD=don postgres:17
@@ -199,6 +214,7 @@ api/             OpenAPI contract en gegenereerde API interfaces
 app/             NestJS/Fastify bootstrap en OpenAPI middleware
 controllers/     Gegenereerde NestJS controllers
 decorators/      Gegenereerde request decorators
+db/              Handmatig uit te voeren SQL voor de events-database
 implementation/  Handgeschreven adapter naar don-tools en de events-implementatie
 models/          Gegenereerde request/response modellen
 scripts/         Reproduceerbare OAS-normalisatie en codegeneratie

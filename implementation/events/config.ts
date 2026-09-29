@@ -2,7 +2,6 @@ import type { PoolConfig } from "pg";
 
 export type EventsConfig = {
   database?: PoolConfig;
-  schema: string;
   timeZone: string;
   publicBaseUrl?: string;
   harvest: {
@@ -48,7 +47,6 @@ export const loadEventsConfig = (env: NodeJS.ProcessEnv = process.env): EventsCo
           connectionTimeoutMillis: 5_000,
         }
       : undefined,
-    schema,
     timeZone: env.EVENTS_TIME_ZONE?.trim() || "Europe/Amsterdam",
     publicBaseUrl: env.PUBLIC_BASE_URL?.trim().replace(/\/+$/, "") || undefined,
     harvest: {

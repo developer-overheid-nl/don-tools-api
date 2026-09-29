@@ -13,7 +13,7 @@ import { EventsApi } from "../../api";
 import { createApplicationLogger } from "../../app/logging";
 import type { AgendaEvent, AgendaEventInput, AgendaEventSource } from "../../models";
 import { type EventsConfig, loadEventsConfig } from "./config";
-import { HARVEST_LOCK, migrate, withAdvisoryLock } from "./database";
+import { HARVEST_LOCK, withAdvisoryLock } from "./database";
 import { formatDateTime, parseDateTime } from "./datetime";
 import { harvestPleio, type SourceHarvestResult } from "./harvester";
 import { type EventFields, type EventRecord, EventsRepository } from "./repository";
@@ -31,7 +31,6 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
   private readonly logger: Logger = createApplicationLogger();
   private pool?: Pool;
   private repository?: EventsRepository;
-  private ready?: Promise<EventsRepository>;
   private harvestJob?: Cron;
 
   onModuleInit(): void {
@@ -66,35 +65,14 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
     await this.pool?.end();
   }
 
-  // Migrates once; a failure is retried on the next call, so a database that starts late recovers without a restart.
-  private ensureReady(): Promise<EventsRepository> {
-    const pool = this.pool;
-    const repository = this.repository;
-    if (!pool || !repository) return Promise.reject(new ServiceUnavailableException("Events are not configured"));
-    this.ready ??= migrate(pool, this.config.schema).then(
-      (applied) => {
-        if (applied.length > 0)
-          this.logger.info({ component: "events", operation: "migrate", versions: applied }, "database migrated");
-        return repository;
-      },
-      (error: unknown) => {
-        this.ready = undefined;
-        this.logger.error(
-          {
-            component: "events",
-            operation: "migrate",
-            error_message: error instanceof Error ? error.message : String(error),
-          },
-          "database migration failed",
-        );
-        throw new ServiceUnavailableException("Events database is unavailable");
-      },
-    );
-    return this.ready;
+  // The schema is created by hand (db/*.sql); the app never runs DDL.
+  private requireRepository(): EventsRepository {
+    if (!this.repository) throw new ServiceUnavailableException("Events are not configured");
+    return this.repository;
   }
 
   private async withRepository<T>(work: (repository: EventsRepository) => Promise<T>): Promise<T> {
-    const repository = await this.ensureReady();
+    const repository = this.requireRepository();
     try {
       return await work(repository);
     } catch (error) {
@@ -114,7 +92,7 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
   async harvest(): Promise<SourceHarvestResult[] | undefined> {
     const fields = { component: "events", operation: "pleio_harvest" };
     try {
-      const repository = await this.ensureReady();
+      const repository = this.requireRepository();
       const pool = this.pool as Pool;
       const results = await withAdvisoryLock(pool, HARVEST_LOCK, () =>
         harvestPleio(repository, this.config.harvest.sources, this.logger, {
