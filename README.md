@@ -13,7 +13,8 @@ businesslogica staat in `@developer-overheid-nl/don-tools` en wordt los beheerd 
 - OpenAPI request- en responsevalidatie via `openapi-backend`
 - Gegenereerde controller- en modelbestanden op basis van `api/openapi.yaml`
 - Implementatie-adapter in `implementation/index.ts`
-- Events-agenda in PostgreSQL met een Pleio-harvester in `implementation/events/`
+- Events-agenda in PostgreSQL met een Pleio-harvester; de logica staat in `@developer-overheid-nl/don-tools`,
+  de adapter en levenscyclus (pool, schema, harvest-cron) in `implementation/events/`
 - Gestructureerde Pino-logging met veilige request-id's en één completion-log per request
 - Docker image voor deployment op poort `1338`
 
@@ -90,10 +91,21 @@ Installeren en starten:
 
 ```sh
 npm install
+cp .env.example .env
+docker compose up -d
 npm run dev
 ```
 
-De API luistert standaard op `http://localhost:1338`.
+De API luistert standaard op `http://localhost:1338`. `docker compose up -d` start PostgreSQL
+op poort `5433` en past bij de eerste start `db/*.sql` toe; `.env.example` wijst daar al naar.
+Bij het opstarten harvest de app meteen de Pleio-bronnen, dus `GET /v1/events` geeft direct
+events. Zonder database laat je `DB_HOSTNAME` leeg; de events-endpoints geven dan `503`.
+
+De integratietests draaien tegen dezelfde database:
+
+```sh
+TEST_DB_HOSTNAME=localhost TEST_DB_PORT=5433 TEST_DB_USERNAME=don TEST_DB_PASSWORD=don TEST_DB_DBNAME=don_events npm test
+```
 
 Handige scripts:
 
@@ -167,7 +179,8 @@ om te controleren dat de gegenereerde code bij de gecommitte OAS past. Het scrip
 
 De projectspecifieke code na generatie staat in `implementation/`: de adapter in
 `implementation/index.ts` roept de acht functies uit `@developer-overheid-nl/don-tools` aan,
-en `implementation/events/` bevat de events-opslag en de Pleio-harvester.
+en `implementation/events/` is de adapter voor de events-agenda uit hetzelfde package: HTTP
+(paginering, `Location`), config uit de omgeving, de databasepool en de harvest-cron.
 
 Voor generatie zijn Node.js 22+, npm, Git en een Java-runtime nodig.
 

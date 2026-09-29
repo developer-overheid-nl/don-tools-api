@@ -1,12 +1,10 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { EventsRepository, HARVEST_LOCK, harvestPleio, withAdvisoryLock } from "@developer-overheid-nl/don-tools";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { Pool } from "pg";
 import pino from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app/index.ts";
-import { HARVEST_LOCK, withAdvisoryLock } from "../implementation/events/database.ts";
-import { harvestPleio } from "../implementation/events/harvester.ts";
-import { EventsRepository } from "../implementation/events/repository.ts";
 
 // Runs against a real PostgreSQL, e.g.: docker run --rm -p 55432:5432 -e POSTGRES_PASSWORD=don postgres:17
 // TEST_DB_HOSTNAME=localhost TEST_DB_PORT=55432 TEST_DB_USERNAME=postgres TEST_DB_PASSWORD=don TEST_DB_DBNAME=postgres npm test

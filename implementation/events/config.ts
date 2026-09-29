@@ -1,6 +1,5 @@
 import { Cron } from "croner";
 import type { PoolConfig } from "pg";
-import { formatterFor } from "./datetime";
 
 export type EventsConfig = {
   database?: PoolConfig;
@@ -45,7 +44,7 @@ const parseSources = (value: string | undefined): string[] =>
 const parseTimeZone = (value: string | undefined): string => {
   const timeZone = value?.trim() || "Europe/Amsterdam";
   try {
-    formatterFor(timeZone);
+    new Intl.DateTimeFormat("en-US", { timeZone });
   } catch {
     throw new Error(`EVENTS_TIME_ZONE is not a valid time zone: ${timeZone}`);
   }

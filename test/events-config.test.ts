@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { loadEventsConfig } from "../implementation/events/config.ts";
-import { isDatabaseUnavailable } from "../implementation/events/database.ts";
 
 describe("loadEventsConfig", () => {
   it("uses defaults for an empty environment", () => {
@@ -31,16 +30,5 @@ describe("loadEventsConfig", () => {
     expect(config.harvest.enabled).toBe(false);
     expect(config.harvest.sources).toEqual(["https://a.pleio.nl", "https://b.pleio.nl"]);
     expect(config.publicBaseUrl).toBe("https://api.example.nl/tools");
-  });
-});
-
-describe("isDatabaseUnavailable", () => {
-  it("recognises outages but not bugs", () => {
-    expect(isDatabaseUnavailable(Object.assign(new Error("relation does not exist"), { code: "42P01" }))).toBe(true);
-    expect(isDatabaseUnavailable(Object.assign(new Error("terminating connection"), { code: "57P01" }))).toBe(true);
-    expect(isDatabaseUnavailable(Object.assign(new Error("connect"), { code: "ECONNREFUSED" }))).toBe(true);
-    expect(isDatabaseUnavailable(new Error("timeout exceeded when trying to connect"))).toBe(true);
-    expect(isDatabaseUnavailable(Object.assign(new Error("syntax error"), { code: "42601" }))).toBe(false);
-    expect(isDatabaseUnavailable(new TypeError("x is undefined"))).toBe(false);
   });
 });
