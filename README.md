@@ -84,7 +84,7 @@ Tijden volgen ADR 2.2: RFC 3339 met UTC-offset (`2026-10-06T15:30:00+02:00`). Ve
 
 Vereisten:
 
-- Node.js 22+
+- Node.js 22.12+
 - npm
 
 Installeren en starten:
@@ -182,7 +182,7 @@ De projectspecifieke code na generatie staat in `implementation/`: de adapter in
 en `implementation/events/` is de adapter voor de events-agenda uit hetzelfde package: HTTP
 (paginering, `Location`), config uit de omgeving, de databasepool en de harvest-cron.
 
-Voor generatie zijn Node.js 22+, npm, Git en een Java-runtime nodig.
+Voor generatie zijn Node.js 22.12+, npm, Git en een Java-runtime nodig.
 
 ## Relatie met `don-tools`
 
