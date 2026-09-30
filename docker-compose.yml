@@ -1,6 +1,5 @@
 # Local PostgreSQL for the events agenda: docker compose up -d
-# db/*.sql is applied automatically on the first start (empty volume); after a schema change run
-# `docker compose down -v` to start over, or apply the new file with psql.
+# The events table is not created here; it is managed outside this repository (see README).
 services:
   db:
     image: postgres:17.0-alpine
@@ -14,7 +13,6 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U don -d don_events"]
       interval: 5s

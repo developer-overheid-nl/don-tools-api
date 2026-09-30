@@ -88,7 +88,7 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
     }
   }
 
-  // The schema is created by hand (db/*.sql); the app never runs DDL.
+  // The schema is created by hand, outside this repository; the app never runs DDL.
   private async withAgenda<T>(work: (agenda: EventAgenda) => Promise<T>): Promise<T> {
     const agenda = this.agenda;
     if (!agenda) throw new ServiceUnavailableException("Events are not configured");

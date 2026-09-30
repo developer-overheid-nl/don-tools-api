@@ -1,4 +1,3 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { EventsRepository, HARVEST_LOCK, harvestPleio, withAdvisoryLock } from "@developer-overheid-nl/don-tools";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { Pool } from "pg";
@@ -9,6 +8,29 @@ import { createApp } from "../app/index.ts";
 // Runs against a real PostgreSQL, e.g.: docker run --rm -p 55432:5432 -e POSTGRES_PASSWORD=don postgres:17
 // TEST_DB_HOSTNAME=localhost TEST_DB_PORT=55432 TEST_DB_USERNAME=postgres TEST_DB_PASSWORD=don TEST_DB_DBNAME=postgres npm test
 const testDatabase = process.env.TEST_DB_HOSTNAME;
+
+// Test fixture of the events table; the schema itself is created and changed by hand on each environment.
+const EVENTS_TABLE = `
+CREATE TABLE events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source text NOT NULL CHECK (source IN ('manual', 'pleio')),
+  source_name text,
+  external_id text,
+  title text NOT NULL,
+  summary text,
+  location text,
+  url text NOT NULL,
+  starts_at timestamptz NOT NULL,
+  ends_at timestamptz NOT NULL CHECK (ends_at >= starts_at),
+  source_updated_at timestamptz,
+  hidden_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (source, source_name, external_id)
+);
+
+CREATE INDEX events_starts_at_idx ON events (starts_at) WHERE hidden_at IS NULL;
+`;
 // In CI a missing database must fail the run instead of silently skipping these tests.
 if (process.env.CI && !testDatabase) throw new Error("TEST_DB_HOSTNAME is required in CI");
 const schema = `events_test_${process.pid}`;
@@ -57,15 +79,12 @@ describe.skipIf(!testDatabase)("events API with PostgreSQL", () => {
       password: process.env.TEST_DB_PASSWORD,
       database: process.env.TEST_DB_DBNAME,
     };
-    // Mirrors the manual setup: an empty schema with db/*.sql applied.
+    // Mirrors the manual setup: an empty schema with the events table, which is managed outside this repository.
     const setup = new Pool(database);
     await setup.query(`CREATE SCHEMA ${schema}`);
     await setup.end();
     pool = new Pool({ ...database, options: `-c search_path=${schema}` });
-    const sqlDirectory = new URL("../db/", import.meta.url);
-    for (const file of readdirSync(sqlDirectory).sort()) {
-      await pool.query(readFileSync(new URL(file, sqlDirectory), "utf8"));
-    }
+    await pool.query(EVENTS_TABLE);
 
     Object.assign(process.env, {
       DB_HOSTNAME: testDatabase,
