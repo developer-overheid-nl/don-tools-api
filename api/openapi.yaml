@@ -33,8 +33,8 @@ info:
 
     ### Events
 
-    Reading events (`GET /v1/events`) is possible with an API key or with a client credentials token with scope `events:read`.
-    Creating, changing and deleting events requires a client credentials token with scope `events:write`.
+    Reading events (`GET /v1/events`) is possible with an API key or with a client credentials token, like the tools endpoints.
+    Creating, changing and deleting events requires a client credentials token; an API key is read-only.
     Events harvested from Pleio can only be changed at the source; deleting such an event hides it from the agenda.
 
     ## Pagination
@@ -316,8 +316,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
       security:
         - apiKey: []
-        - clientCredentials:
-            - events:read
+        - clientCredentials: []
       summary: Lijst events
       tags:
         - Events
@@ -347,8 +346,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
       security:
-        - clientCredentials:
-            - events:write
+        - clientCredentials: []
       summary: Maak event
       tags:
         - Events
@@ -376,8 +374,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
       security:
         - apiKey: []
-        - clientCredentials:
-            - events:read
+        - clientCredentials: []
       summary: Haal event op
       tags:
         - Events
@@ -409,8 +406,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
       security:
-        - clientCredentials:
-            - events:write
+        - clientCredentials: []
       summary: Wijzig event
       tags:
         - Events
@@ -430,8 +426,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
       security:
-        - clientCredentials:
-            - events:write
+        - clientCredentials: []
       summary: Verwijder event
       tags:
         - Events
@@ -839,7 +834,5 @@ components:
         clientCredentials:
           scopes:
             tools: Access to tools endpoints
-            events:read: Read events
-            events:write: Create, change and delete events
           tokenUrl: https://auth.developer.overheid.nl/realms/don/protocol/openid-connect/token
       type: oauth2
