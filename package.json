@@ -23,7 +23,7 @@
   },
   "packageManager": "npm@11.19.0",
   "dependencies": {
-    "@developer-overheid-nl/don-tools": "file:../don-tools",
+    "@developer-overheid-nl/don-tools": "github:developer-overheid-nl/don-tools#21d4f5bc1c19d5f665c004828045a12430c062e9",
     "@fastify/cors": "11.3.0",
     "@nestjs/common": "12.1.1",
     "@nestjs/core": "12.1.1",
@@ -51,6 +51,7 @@
     "fast-uri@>=3.0.0 <4.0.0": "3.1.8",
     "js-yaml@>=4.0.0 <5.0.0": "4.3.2",
     "lodash": "4.18.1",
-    "yaml@>=1.0.0 <2.0.0": "1.10.3"
+    "yaml@>=1.0.0 <2.0.0": "1.10.3",
+    "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#da1327dfcc83ed130b1fe5aaa282b7bfba537aee"
   }
 }
