@@ -51,7 +51,6 @@
     "fast-uri@>=3.0.0 <4.0.0": "3.1.8",
     "js-yaml@>=4.0.0 <5.0.0": "4.3.2",
     "lodash": "4.18.1",
-    "yaml@>=1.0.0 <2.0.0": "1.10.3",
-    "@developer-overheid-nl/adr-rulesets": "github:developer-overheid-nl/adr-rulesets#da1327dfcc83ed130b1fe5aaa282b7bfba537aee"
+    "yaml@>=1.0.0 <2.0.0": "1.10.3"
   }
 }
