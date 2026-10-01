@@ -1,0 +1,24 @@
+# Local PostgreSQL for the events agenda: docker compose up -d
+# The events table is not created here; it is managed outside this repository (see README).
+services:
+  db:
+    image: postgres:17.0-alpine
+    container_name: don-tools-postgres
+    environment:
+      POSTGRES_USER: don
+      POSTGRES_PASSWORD: don
+      POSTGRES_DB: don_events
+    # 5433, so it can run next to the Postgres of the registers (5432).
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U don -d don_events"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

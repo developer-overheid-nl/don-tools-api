@@ -8,11 +8,11 @@ import { load as loadYaml } from "js-yaml";
 
 const sourceUrl = "https://api.developer.overheid.nl/tools/v1/openapi.json";
 const templateRepository = "https://github.com/developer-overheid-nl/codegen-templates.git";
-const templateCommit = "462c1d6b264b2b2dab77bfe1bf4d886af4b425f1";
-const openApiGeneratorCliVersion = "2.40.1";
-const redoclyVersion = "2.46.2";
-const donCheckerVersion = "1.1.0";
-const biomeVersion = "2.5.9";
+const templateCommit = "8ff74f4382860a6f74b2abac3f1ab593a17149ed";
+const openApiGeneratorCliVersion = "2.41.0";
+const redoclyVersion = "2.55.0";
+const donCheckerVersion = "1.2.1";
+const biomeVersion = "2.5.14";
 const legacyComponentKinds = ["schemas", "responses", "headers", "securitySchemes"];
 const operationMethods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
 const generatedEntries = ["api", "app", "controllers", "decorators", "models", "tsconfig.json"];
@@ -68,6 +68,10 @@ const downloadOpenApi = async () => {
 
 // Falls back to the committed OAS, so a broken published spec cannot block the release that fixes it.
 const fetchOpenApi = async () => {
+  // OPENAPI_SOURCE generates from a local file, e.g. to add operations that are not yet published.
+  if (process.env.OPENAPI_SOURCE) {
+    return normalizeOpenApi(loadYaml(readFileSync(resolve(process.env.OPENAPI_SOURCE), "utf8")));
+  }
   let document;
   try {
     document = await downloadOpenApi();
@@ -156,7 +160,7 @@ export const generateApi = async () => {
       templateDirectory,
       "-c",
       join(templateDirectory, "generator-config.yaml"),
-      "--additional-properties=npmName=tools-api-v1,npmVersion=1.0.0,logAppName=tools-api,nestVersion=11.2.1,rxjsVersion=7.8.2,tsVersion=6.0.3,nodeVersion=22.20.1,licenseName=EUPL-1.2",
+      "--additional-properties=npmName=tools-api-v1,npmVersion=1.0.0,logAppName=tools-api,nestVersion=12.1.1,rxjsVersion=7.8.2,tsVersion=7.0.2,nodeVersion=22.20.4,licenseName=EUPL-1.2",
     ]);
     synchronizeGeneratedOutput(generatedDirectory, bundledOpenApi);
     run("npx", [

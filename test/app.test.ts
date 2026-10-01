@@ -64,6 +64,12 @@ describe("app", () => {
     expect(response.body).toContain("title: Tools API v1");
   });
 
+  it("answers events requests with 503 when no database is configured", async () => {
+    const response = await inject({ method: "GET", url: "/v1/events" });
+    expect(response.statusCode).toBe(503);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+  });
+
   it("returns API-Version header", async () => {
     const response = await inject({ method: "GET", url: "/openapi.json" });
     expect(response.headers["api-version"]).toBe("1.0.0");
