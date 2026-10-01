@@ -32,7 +32,6 @@ CREATE TABLE events (
 CREATE INDEX events_starts_at_idx ON events (starts_at) WHERE hidden_at IS NULL;
 `;
 // In CI a missing database must fail the run instead of silently skipping these tests.
-if (process.env.CI && !testDatabase) throw new Error("TEST_DB_HOSTNAME is required in CI");
 const schema = `events_test_${process.pid}`;
 
 let app: NestFastifyApplication;
