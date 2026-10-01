@@ -94,12 +94,6 @@ op poort `5433`; `.env.example` wijst daar al naar. Maak daarin eenmalig de tabe
 (zie [Database](#database)). Daarna harvest de app bij het opstarten meteen de Pleio-bronnen,
 dus `GET /v1/events` geeft direct events. Zonder database laat je `DB_HOSTNAME` leeg; de events-endpoints geven dan `503`.
 
-De integratietests draaien tegen dezelfde database:
-
-```sh
-TEST_DB_HOSTNAME=localhost TEST_DB_PORT=5433 TEST_DB_USERNAME=don TEST_DB_PASSWORD=don TEST_DB_DBNAME=don_events npm test
-```
-
 Handige scripts:
 
 ```sh
@@ -209,14 +203,6 @@ npm run lint
 npm run typecheck
 npm run build
 npm test
-```
-
-De integratietests voor events draaien alleen met een PostgreSQL-database; ze maken een
-tijdelijk schema aan met de tabel `events` en ruimen dat daarna op:
-
-```sh
-docker run --rm -d --name don-events-pg -p 55432:5432 -e POSTGRES_PASSWORD=don postgres:17
-TEST_DB_HOSTNAME=localhost TEST_DB_PORT=55432 TEST_DB_USERNAME=postgres TEST_DB_PASSWORD=don TEST_DB_DBNAME=postgres npm test
 ```
 
 Bij wijzigingen aan de OAS of de template: draai ook `npm run generate` en controleer
