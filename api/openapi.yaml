@@ -23,7 +23,7 @@ info:
     Using a client credentials token, you can access the tools endpoints.
     To obtain the token, perform a `POST` request to `https://auth.developer.overheid.nl/realms/don/protocol/openid-connect/token` with the following Form URL Encoded body:
     - `grant_type`: `client_credentials`
-    - `scope`: `tools`
+    - `scope`: `tools` for the tools endpoints; `events:read` and/or `events:write` for the events endpoints
     - `client_id`: the client id you received from us
     - `client_secret`: the client secret you received from us
 
@@ -33,8 +33,8 @@ info:
 
     ### Events
 
-    Reading events (`GET /v1/events`) is possible with an API key or with a client credentials token, like the tools endpoints.
-    Creating, changing and deleting events requires a client credentials token; an API key is read-only.
+    Reading events (`GET`) is possible with an API key or with a client credentials token with scope `events:read`.
+    Creating, changing and deleting events (`POST`, `PUT`, `DELETE`) requires a client credentials token with scope `events:write`.
     Events harvested from Pleio can only be changed at the source; deleting such an event hides it from the agenda.
 
     ## Pagination
@@ -316,7 +316,8 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
       security:
         - apiKey: []
-        - clientCredentials: []
+        - clientCredentials:
+            - events:read
       summary: Lijst events
       tags:
         - Events
@@ -346,7 +347,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
       security:
-        - clientCredentials: []
+        - clientCredentials:
+            - events:write
       summary: Maak event
       tags:
         - Events
@@ -374,7 +376,8 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
       security:
         - apiKey: []
-        - clientCredentials: []
+        - clientCredentials:
+            - events:read
       summary: Haal event op
       tags:
         - Events
@@ -406,7 +409,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
       security:
-        - clientCredentials: []
+        - clientCredentials:
+            - events:write
       summary: Wijzig event
       tags:
         - Events
@@ -426,7 +430,8 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
       security:
-        - clientCredentials: []
+        - clientCredentials:
+            - events:write
       summary: Verwijder event
       tags:
         - Events
@@ -834,5 +839,7 @@ components:
         clientCredentials:
           scopes:
             tools: Access to tools endpoints
+            events:read: Read events
+            events:write: Create, change and delete events
           tokenUrl: https://auth.developer.overheid.nl/realms/don/protocol/openid-connect/token
       type: oauth2
