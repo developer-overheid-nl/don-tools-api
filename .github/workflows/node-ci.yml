@@ -37,7 +37,7 @@ jobs:
 
       - name: Verify generated sources
         run: |
-          npm run generate
+          OPENAPI_SOURCE=api/openapi.yaml npm run generate
           git diff --exit-code -- api app controllers decorators models tsconfig.json
 
   build-and-push:
