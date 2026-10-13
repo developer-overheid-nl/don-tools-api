@@ -99,7 +99,7 @@ describe("app", () => {
     const response = await inject({ method: "GET", url: "/no-such-route?token=never-reflect-this" });
     expect(response.statusCode).toBe(404);
     expect(response.headers["content-type"]).toContain("application/problem+json");
-    expect(response.json()).toMatchObject({ status: 404, title: "Cannot GET /no-such-route" });
+    expect(response.json()).toMatchObject({ status: 404, title: "Not Found", detail: "Cannot GET /no-such-route" });
     expect(response.body).not.toContain("never-reflect-this");
   });
 
@@ -229,7 +229,7 @@ describe("app", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.headers["content-type"]).toContain("application/problem+json");
-    expect(response.json()).toMatchObject({ status: 400, title: "email ontbreekt of is ongeldig" });
+    expect(response.json()).toMatchObject({ status: 400, title: "Bad Request", detail: "email ontbreekt of is ongeldig" });
   });
 
   it("returns generated OpenAPI directly", async () => {

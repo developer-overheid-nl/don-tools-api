@@ -649,6 +649,7 @@ components:
       required:
         - status
         - title
+        - detail
       type: object
     AgendaEventSource:
       description: Herkomst van het event. `manual` is via deze API beheerd, `pleio` is geharvest uit een Pleio-site.

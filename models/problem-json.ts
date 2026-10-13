@@ -1,5 +1,5 @@
 export interface ProblemJson {
-  detail?: string;
+  detail: string;
   errors?: Array<ProblemJsonErrorsInner>;
   status: number;
   title: string;
