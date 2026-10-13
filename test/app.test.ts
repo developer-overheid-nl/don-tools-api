@@ -189,12 +189,35 @@ describe("app", () => {
       url: "/v1/oas/validate",
       payload: {
         oasBody: readFileSync(new URL("../api/openapi.yaml", import.meta.url), "utf8"),
-        targetVersion: "2.1",
+        targetVersion: "2.2",
       },
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ failures: 0, successes: true, rulesetVersion: "2.1" });
+    expect(response.json()).toMatchObject({ failures: 0, successes: true, rulesetVersion: "2.2" });
+  });
+
+  it("validates against ADR 2.2 when no targetVersion is given", async () => {
+    const response = await inject({
+      method: "POST",
+      url: "/v1/oas/validate",
+      payload: { oasBody: readFileSync(new URL("../api/openapi.yaml", import.meta.url), "utf8") },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ rulesetVersion: "2.2" });
+  });
+
+  it("rejects an unsupported ruleset version with problem details", async () => {
+    const response = await inject({
+      method: "POST",
+      url: "/v1/oas/validate",
+      payload: { oasBody: JSON.stringify(openApiDocument), targetVersion: "3.1" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toMatchObject({ status: 400 });
   });
 
   it("maps a logic package error to problem details", async () => {

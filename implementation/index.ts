@@ -1,10 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { HttpException, Injectable } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { ToolsApi } from "../api";
 import type { ApiImplementations } from "../app/api-implementations";
 import type { ModelsKeycloakClientResult, ModelsLintResult, OasInput, UntrustClientInput } from "../models";
 import { invoke, loadTools } from "./don-tools";
 import { EventsService } from "./events/service";
+
+// ADR ruleset versions accepted by the validator; without targetVersion it validates against ADR 2.2.
+const rulesetVersions = ["2.0", "2.1", "2.2", "draft"];
+const defaultRulesetVersion = "2.2";
 
 const setHeaders = (reply: FastifyReply, headers: Record<string, string>): void => {
   for (const [name, value] of Object.entries(headers)) reply.header(name, value);
@@ -62,8 +66,12 @@ class ToolsService extends ToolsApi {
   }
 
   async validatorOpenAPIPost(input: OasInput | undefined): Promise<ModelsLintResult> {
+    const targetVersion = input?.targetVersion ?? defaultRulesetVersion;
+    if (!rulesetVersions.includes(targetVersion)) {
+      throw new HttpException(`targetVersion wordt niet ondersteund. Gebruik ${rulesetVersions.join(", ")}.`, 400);
+    }
     const { validatorOpenAPIPost } = await loadTools();
-    return invoke(() => validatorOpenAPIPost(input as never));
+    return invoke(() => validatorOpenAPIPost({ ...input, targetVersion } as never));
   }
 }
 
