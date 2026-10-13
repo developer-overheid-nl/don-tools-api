@@ -1,4 +1,4 @@
-openapi: 3.0.1
+openapi: 3.1.0
 info:
   contact:
     email: developer.overheid@geonovum.nl
@@ -83,6 +83,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -115,6 +117,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -147,6 +151,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -175,6 +181,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -204,6 +212,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -236,6 +246,8 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -248,7 +260,7 @@ paths:
       x-original-operationId: GenerateOAS
   /v1/oas/validate:
     post:
-      description: 'Valideert een OpenAPI specificatie met de DON ADR ruleset. Standaard wordt ruleset 2.1 gebruikt; geef targetVersion "2.0" of "2.1" mee om een versie te kiezen. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).'
+      description: 'Valideert een OpenAPI specificatie met de DON ADR ruleset. Standaard wordt ruleset 2.2 gebruikt; geef targetVersion "2.0", "2.1", "2.2" of "draft" mee om een versie te kiezen. Body: { oasUrl } of { oasBody } (stringified JSON of YAML).'
       operationId: validatorOpenAPIPost
       requestBody:
         content:
@@ -269,6 +281,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -454,6 +468,8 @@ paths:
               schema:
                 type: string
               style: simple
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/404'
       security:
@@ -470,39 +486,46 @@ components:
       description: De API-versie van de response
       explode: false
       schema:
-        example: 1.0.0
+        examples:
+          - 1.0.0
         type: string
       style: simple
     Link:
       description: Links naar de eerste, vorige, volgende en laatste pagina
       schema:
-        example: <https://api.developer.overheid.nl/tools/v1/events?page=2&perPage=20>; rel="next"
+        examples:
+          - <https://api.developer.overheid.nl/tools/v1/events?page=2&perPage=20>; rel="next"
         type: string
     Location:
       description: URI van de aangemaakte resource
       schema:
-        example: https://api.developer.overheid.nl/tools/v1/events/0f8d3c1e-7a3b-4f5e-9b1a-2c6d4e8f0a12
+        examples:
+          - https://api.developer.overheid.nl/tools/v1/events/0f8d3c1e-7a3b-4f5e-9b1a-2c6d4e8f0a12
         format: uri
         type: string
     Total-Count:
       description: Totaal aantal items
       schema:
-        example: 124
+        examples:
+          - 124
         type: integer
     Current-Page:
       description: Huidige pagina
       schema:
-        example: 1
+        examples:
+          - 1
         type: integer
     Per-Page:
       description: Aantal items per pagina
       schema:
-        example: 20
+        examples:
+          - 20
         type: integer
     Total-Pages:
       description: Totaal aantal pagina's
       schema:
-        example: 7
+        examples:
+          - 7
         type: integer
   parameters:
     Page:
@@ -530,7 +553,8 @@ components:
       name: endsAfter
       required: false
       schema:
-        example: '2026-09-24T00:00:00+02:00'
+        examples:
+          - '2026-09-24T00:00:00+02:00'
         format: date-time
         type: string
     StartsBefore:
@@ -539,7 +563,8 @@ components:
       name: startsBefore
       required: false
       schema:
-        example: '2027-01-01T00:00:00+01:00'
+        examples:
+          - '2027-01-01T00:00:00+01:00'
         format: date-time
         type: string
     EventSourceFilter:
@@ -621,42 +646,52 @@ components:
           type: integer
         title:
           type: string
+      required:
+        - status
+        - title
       type: object
     AgendaEventSource:
       description: Herkomst van het event. `manual` is via deze API beheerd, `pleio` is geharvest uit een Pleio-site.
       enum:
         - manual
         - pleio
-      example: manual
+      examples:
+        - manual
       type: string
     AgendaEventInput:
       properties:
         title:
-          example: PGDay Lowlands 2026
+          examples:
+            - PGDay Lowlands 2026
           maxLength: 300
           minLength: 1
           type: string
         summary:
-          example: PostgreSQL-conferentie van PostgreSQL Europe, voor developers en databaseprofessionals.
+          examples:
+            - PostgreSQL-conferentie van PostgreSQL Europe, voor developers en databaseprofessionals.
           maxLength: 2000
           type: string
         startsAt:
           description: Begin van het event (RFC 3339 met UTC-offset).
-          example: '2026-09-10T09:00:00+02:00'
+          examples:
+            - '2026-09-10T09:00:00+02:00'
           format: date-time
           type: string
         endsAt:
           description: Einde van het event (RFC 3339 met UTC-offset). Mag niet vóór `startsAt` liggen.
-          example: '2026-09-10T17:00:00+02:00'
+          examples:
+            - '2026-09-10T17:00:00+02:00'
           format: date-time
           type: string
         location:
-          example: TivoliVredenburg, Utrecht
+          examples:
+            - TivoliVredenburg, Utrecht
           maxLength: 300
           type: string
         url:
           description: Pagina met meer informatie over het event.
-          example: https://2026.pgday.nl/
+          examples:
+            - https://2026.pgday.nl/
           format: uri
           maxLength: 2000
           type: string
@@ -671,21 +706,25 @@ components:
         - $ref: '#/components/schemas/AgendaEventInput'
         - properties:
             id:
-              example: 0f8d3c1e-7a3b-4f5e-9b1a-2c6d4e8f0a12
+              examples:
+                - 0f8d3c1e-7a3b-4f5e-9b1a-2c6d4e8f0a12
               format: uuid
               type: string
             source:
               $ref: '#/components/schemas/AgendaEventSource'
             sourceName:
               description: Naam van de bron, bijvoorbeeld de host van de Pleio-site.
-              example: digilab.pleio.nl
+              examples:
+                - digilab.pleio.nl
               type: string
             createdAt:
-              example: '2026-09-01T08:00:00+02:00'
+              examples:
+                - '2026-09-01T08:00:00+02:00'
               format: date-time
               type: string
             updatedAt:
-              example: '2026-09-02T10:15:00+02:00'
+              examples:
+                - '2026-09-02T10:15:00+02:00'
               format: date-time
               type: string
           required:
@@ -695,41 +734,41 @@ components:
             - updatedAt
           type: object
     OasInput:
-      example:
-        oasUrl: oasUrl
-        oasBody: oasBody
-        targetVersion: '3.1'
+      examples:
+        - oasUrl: oasUrl
+          oasBody: oasBody
+          targetVersion: '3.1'
       properties:
         oasBody:
           type: string
         oasUrl:
           type: string
         targetVersion:
-          description: 'Doelversie. Voor conversie: 3.0 of 3.1. Voor validatie: 2.0 of 2.1.'
+          description: 'Doelversie. Voor conversie: "3.0" of "3.1" (standaard "3.1"). Voor validatie: de ADR-rulesetversie "2.0", "2.1", "2.2" of "draft" (standaard "2.2").'
           type: string
       type: object
     ModelsKeycloakClientResult:
-      example:
-        apiKey: apiKey
+      examples:
+        - apiKey: apiKey
       properties:
         apiKey:
           type: string
       type: object
     ModelsLintMessage:
-      example:
-        severity: severity
-        createdAt: '2000-01-23T04:56:07.000Z'
-        code: code
-        id: id
-        infos:
-          - path: path
-            lintMessageId: lintMessageId
-            id: id
-            message: message
-          - path: path
-            lintMessageId: lintMessageId
-            id: id
-            message: message
+      examples:
+        - severity: severity
+          createdAt: '2000-01-23T04:56:07.000Z'
+          code: code
+          id: id
+          infos:
+            - path: path
+              lintMessageId: lintMessageId
+              id: id
+              message: message
+            - path: path
+              lintMessageId: lintMessageId
+              id: id
+              message: message
       properties:
         code:
           type: string
@@ -746,11 +785,11 @@ components:
           type: string
       type: object
     ModelsLintMessageInfo:
-      example:
-        path: path
-        lintMessageId: lintMessageId
-        id: id
-        message: message
+      examples:
+        - path: path
+          lintMessageId: lintMessageId
+          id: id
+          message: message
       properties:
         id:
           type: string
@@ -762,41 +801,41 @@ components:
           type: string
       type: object
     ModelsLintResult:
-      example:
-        createdAt: '2000-01-23T04:56:07.000Z'
-        score: 6
-        failures: 0
-        successes: true
-        rulesetVersion: '2.1'
-        messages:
-          - severity: severity
-            createdAt: '2000-01-23T04:56:07.000Z'
-            code: code
-            id: id
-            infos:
-              - path: path
-                lintMessageId: lintMessageId
-                id: id
-                message: message
-              - path: path
-                lintMessageId: lintMessageId
-                id: id
-                message: message
-          - severity: severity
-            createdAt: '2000-01-23T04:56:07.000Z'
-            code: code
-            id: id
-            infos:
-              - path: path
-                lintMessageId: lintMessageId
-                id: id
-                message: message
-              - path: path
-                lintMessageId: lintMessageId
-                id: id
-                message: message
-        id: id
-        apiId: apiId
+      examples:
+        - createdAt: '2000-01-23T04:56:07.000Z'
+          score: 100
+          failures: 0
+          successes: true
+          rulesetVersion: '2.2'
+          messages:
+            - severity: severity
+              createdAt: '2000-01-23T04:56:07.000Z'
+              code: code
+              id: id
+              infos:
+                - path: path
+                  lintMessageId: lintMessageId
+                  id: id
+                  message: message
+                - path: path
+                  lintMessageId: lintMessageId
+                  id: id
+                  message: message
+            - severity: severity
+              createdAt: '2000-01-23T04:56:07.000Z'
+              code: code
+              id: id
+              infos:
+                - path: path
+                  lintMessageId: lintMessageId
+                  id: id
+                  message: message
+                - path: path
+                  lintMessageId: lintMessageId
+                  id: id
+                  message: message
+          id: id
+          apiId: apiId
       properties:
         apiId:
           type: string
@@ -822,8 +861,8 @@ components:
           type: string
       type: object
     UntrustClientInput:
-      example:
-        email: email
+      examples:
+        - email: email
       properties:
         email:
           type: string
