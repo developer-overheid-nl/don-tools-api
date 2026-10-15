@@ -93,9 +93,11 @@ const statusText = (status: number): string => {
   return texts[status] ?? "Unknown Error";
 };
 
-const toProblem = (status: number, title: string, errors?: ProblemError[]) => ({
-  title,
+// RFC 9457: title is the generic summary of the status, detail explains this occurrence.
+const toProblem = (status: number, detail: string, errors?: ProblemError[]) => ({
+  title: statusText(status),
   status,
+  detail,
   ...(errors?.length ? { errors } : {}),
 });
 
@@ -415,13 +417,13 @@ const sendProblem = (
   reply: RuntimeReply,
   operation: RuntimeOperation | undefined,
   status: number,
-  title: string,
+  detail: string,
   apiVersion: string | undefined,
   errors?: ValidationError[],
 ) => {
   applyDeclaredResponseMetadata(document, request, reply.status(status), operation, status, apiVersion);
   if (!reply.getHeader("content-type")) reply.type("application/problem+json");
-  return reply.send(toProblem(status, title, toProblemErrors(errors)));
+  return reply.send(toProblem(status, detail, toProblemErrors(errors)));
 };
 
 const escapeRegExp = (input: string): string => input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -99,7 +99,7 @@ describe("app", () => {
     const response = await inject({ method: "GET", url: "/no-such-route?token=never-reflect-this" });
     expect(response.statusCode).toBe(404);
     expect(response.headers["content-type"]).toContain("application/problem+json");
-    expect(response.json()).toMatchObject({ status: 404, title: "Cannot GET /no-such-route" });
+    expect(response.json()).toMatchObject({ status: 404, title: "Not Found", detail: "Cannot GET /no-such-route" });
     expect(response.body).not.toContain("never-reflect-this");
   });
 
@@ -189,12 +189,35 @@ describe("app", () => {
       url: "/v1/oas/validate",
       payload: {
         oasBody: readFileSync(new URL("../api/openapi.yaml", import.meta.url), "utf8"),
-        targetVersion: "2.1",
+        targetVersion: "2.2",
       },
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ failures: 0, successes: true, rulesetVersion: "2.1" });
+    expect(response.json()).toMatchObject({ failures: 0, successes: true, rulesetVersion: "2.2" });
+  });
+
+  it("validates against ADR 2.2 when no targetVersion is given", async () => {
+    const response = await inject({
+      method: "POST",
+      url: "/v1/oas/validate",
+      payload: { oasBody: readFileSync(new URL("../api/openapi.yaml", import.meta.url), "utf8") },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ rulesetVersion: "2.2" });
+  });
+
+  it("rejects an unsupported ruleset version with problem details", async () => {
+    const response = await inject({
+      method: "POST",
+      url: "/v1/oas/validate",
+      payload: { oasBody: JSON.stringify(openApiDocument), targetVersion: "3.1" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toMatchObject({ status: 400 });
   });
 
   it("maps a logic package error to problem details", async () => {
@@ -206,7 +229,7 @@ describe("app", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.headers["content-type"]).toContain("application/problem+json");
-    expect(response.json()).toMatchObject({ status: 400, title: "email ontbreekt of is ongeldig" });
+    expect(response.json()).toMatchObject({ status: 400, title: "Bad Request", detail: "email ontbreekt of is ongeldig" });
   });
 
   it("returns generated OpenAPI directly", async () => {

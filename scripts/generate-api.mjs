@@ -8,10 +8,10 @@ import { load as loadYaml } from "js-yaml";
 
 const sourceUrl = "https://api.developer.overheid.nl/tools/v1/openapi.json";
 const templateRepository = "https://github.com/developer-overheid-nl/codegen-templates.git";
-const templateCommit = "8ff74f4382860a6f74b2abac3f1ab593a17149ed";
+const templateCommit = "6bb8d43e982c729552c207a382f173946b00eb0d";
 const openApiGeneratorCliVersion = "2.41.0";
 const redoclyVersion = "2.55.0";
-const donCheckerVersion = "1.2.1";
+const donCheckerVersion = "1.3.1";
 const biomeVersion = "2.5.14";
 const legacyComponentKinds = ["schemas", "responses", "headers", "securitySchemes"];
 const operationMethods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
@@ -138,7 +138,7 @@ export const generateApi = async () => {
       "--standard",
       "adr",
       "--version",
-      "2.1.0",
+      "2.2.0",
       "--input",
       bundledOpenApi,
       "--format",
