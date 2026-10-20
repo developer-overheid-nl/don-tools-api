@@ -160,7 +160,7 @@ om te controleren dat de gegenereerde code bij de gecommitte OAS past. Het scrip
 - controleert en verwijdert vier identieke legacy-componentvelden op rootniveau;
 - corrigeert de API-key en client-credentials-eis naar twee alternatieve security-requirements;
 - bundelt de OAS met een vastgezette Redocly-versie;
-- valideert de bundel met DON ADR 2.1;
+- valideert de bundel met DON ADR 2.2;
 - genereert NestJS/Fastify met een vastgezette templatecommit en OpenAPI Generator-versie;
 - vervangt alleen de gegenereerde mappen en laat `implementation/` ongemoeid.
 

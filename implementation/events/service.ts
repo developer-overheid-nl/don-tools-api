@@ -44,7 +44,7 @@ export class EventsService extends EventsApi implements OnModuleInit, OnApplicat
       this.logger.error({ ...logFields("database"), error_message: error.message }, "idle database client failed"),
     );
     this.pool = pool;
-    this.agenda = new EventAgenda(new EventsRepository(pool), this.config.timeZone);
+    this.agenda = new EventAgenda(new EventsRepository(pool));
     if (!this.config.harvest.enabled || this.config.harvest.sources.length === 0) return;
     this.harvestJob = new Cron(
       this.config.harvest.cron,

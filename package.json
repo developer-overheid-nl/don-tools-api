@@ -23,7 +23,7 @@
   },
   "packageManager": "npm@11.19.0",
   "dependencies": {
-    "@developer-overheid-nl/don-tools": "github:developer-overheid-nl/don-tools#21d4f5bc1c19d5f665c004828045a12430c062e9",
+    "@developer-overheid-nl/don-tools": "github:developer-overheid-nl/don-tools#d5809cb74bca06ac356377e8f533f9efc7cd22ba",
     "@fastify/cors": "11.3.0",
     "@nestjs/common": "12.1.1",
     "@nestjs/core": "12.1.1",
