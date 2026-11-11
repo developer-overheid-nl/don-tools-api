@@ -10,7 +10,7 @@ on:
 
 jobs:
   deploy:
-    uses: developer-overheid-nl/.github/.github/workflows/deploy.yml@feat/gedeelde-workflows
+    uses: developer-overheid-nl/.github/.github/workflows/deploy.yml@v1
     permissions:
       contents: read
       packages: write

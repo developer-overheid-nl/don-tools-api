@@ -10,7 +10,7 @@ on:
 
 jobs:
   validate:
-    uses: developer-overheid-nl/.github/.github/workflows/oas-adr.yml@feat/gedeelde-workflows
+    uses: developer-overheid-nl/.github/.github/workflows/oas-adr.yml@v1
     permissions:
       contents: read
     with:
