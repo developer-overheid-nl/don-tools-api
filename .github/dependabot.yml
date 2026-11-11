@@ -5,8 +5,18 @@ updates:
     open-pull-requests-limit: 10
     schedule:
       interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: github-actions
     directory: /.github/workflows
     open-pull-requests-limit: 10
     schedule:
       interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
